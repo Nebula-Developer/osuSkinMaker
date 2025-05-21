@@ -23,6 +23,7 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
+import { ScrollArea } from "./ui/scroll-area";
 
 const circleElement: SkinElement = {
   name: "Circle",
@@ -234,7 +235,6 @@ export function parseJSObjectLiteral(code: string): any {
   }
 }
 
-
 export default function SkinEditor() {
   let elements: SkinElement[] = [
     circleElement,
@@ -245,7 +245,7 @@ export default function SkinEditor() {
 
   let stringParsedElement = `
   {
-    name: "Cool Text",
+    name: "Cool Text Hello!",
     height: 100,
     width: 100,
     render(ctx, values) {
@@ -253,7 +253,7 @@ export default function SkinEditor() {
       ctx.font = \`\${values.fontSize}px \${values.font}\`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(values.text, 50, 50);
+      ctx.fillText(values.text, 50 + values.x, 50 + values.y);
     },
     properties: {
       text: {
@@ -266,7 +266,27 @@ export default function SkinEditor() {
         default: 20,
         parser: (input) => parseInt(input),
         options: {
-          min: 5,
+          min: 1,
+          max: 200,
+          step: 1,
+        },
+      },
+      x: {
+        type: "number",
+        default: 0,
+        parser: (input) => parseInt(input),
+        options: {
+          min: -100,
+          max: 100,
+          step: 1,
+        },
+      },
+      y: {
+        type: "number",
+        default: 0,
+        parser: (input) => parseInt(input),
+        options: {
+          min: -100,
           max: 100,
           step: 1,
         },
@@ -325,119 +345,125 @@ export default function SkinEditor() {
           defaultSize={30}
           minSize={20}
           maxSize={50}
-          className="bg-background p-4 space-y-4"
+          className="bg-background"
         >
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Element Selection</CardTitle>
-              <CardDescription>
-                Choose the skin element to customize
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Select
-                value={selectedFeature}
-                onValueChange={(value) => setSelectedFeature(value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select element" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.keys(features).map((feature) => (
-                    <SelectItem key={feature} value={feature}>
-                      {feature}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
+          <ScrollArea scrollHideDelay={0} className="h-full">
+            <div className="space-y-8 flex flex-col p-4 pl-2">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle>Element Selection</CardTitle>
+                  <CardDescription>
+                    Choose the skin element to customize
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Select
+                    value={selectedFeature}
+                    onValueChange={(value) => setSelectedFeature(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select element" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.keys(features).map((feature) => (
+                        <SelectItem key={feature} value={feature}>
+                          {feature}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Feature Properties</CardTitle>
-              <CardDescription>
-                Customize the properties of the selected feature
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Select
-                value={features[selectedFeature].element.name}
-                onValueChange={(value) => {
-                  const newElement = elements.find((el) => el.name === value);
-                  if (!newElement) return;
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle>Feature Properties</CardTitle>
+                  <CardDescription>
+                    Customize the properties of the selected feature
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Select
+                    value={features[selectedFeature].element.name}
+                    onValueChange={(value) => {
+                      const newElement = elements.find(
+                        (el) => el.name === value
+                      );
+                      if (!newElement) return;
 
-                  setStoredValues((prev) => {
-                    const prevElement = features[selectedFeature].element;
-                    const prevValues = features[selectedFeature].values;
+                      setStoredValues((prev) => {
+                        const prevElement = features[selectedFeature].element;
+                        const prevValues = features[selectedFeature].values;
 
-                    return {
-                      ...prev,
-                      [selectedFeature]: {
-                        ...prev[selectedFeature],
-                        [prevElement.name]: prevValues,
+                        return {
+                          ...prev,
+                          [selectedFeature]: {
+                            ...prev[selectedFeature],
+                            [prevElement.name]: prevValues,
+                          },
+                        };
+                      });
+
+                      setFeatures((prev) => {
+                        const existingStored =
+                          storedValues[selectedFeature]?.[value];
+                        const prevValues = prev[selectedFeature].values;
+
+                        return {
+                          ...prev,
+                          [selectedFeature]: createFeature(
+                            selectedFeature,
+                            newElement,
+                            existingStored || prevValues
+                          ),
+                        };
+                      });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select element" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {elements.map((element) => (
+                        <SelectItem key={element.name} value={element.name}>
+                          {element.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CardContent>
+              </Card>
+
+              <EditorSidebar
+                features={[]}
+                feature={features[selectedFeature]}
+                updateValues={(values) => {
+                  setFeatures((prev) => {
+                    const updatedFeature = {
+                      ...prev[selectedFeature],
+                      values: {
+                        ...prev[selectedFeature].values,
+                        ...values,
                       },
                     };
-                  });
 
-                  setFeatures((prev) => {
-                    const existingStored =
-                      storedValues[selectedFeature]?.[value];
-                    const prevValues = prev[selectedFeature].values;
+                    setStoredValues((stored) => ({
+                      ...stored,
+                      [selectedFeature]: {
+                        ...(stored[selectedFeature] || {}),
+                        [updatedFeature.element.name]: updatedFeature.values,
+                      },
+                    }));
 
                     return {
                       ...prev,
-                      [selectedFeature]: createFeature(
-                        selectedFeature,
-                        newElement,
-                        existingStored || prevValues
-                      ),
+                      [selectedFeature]: updatedFeature,
                     };
                   });
                 }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select element" />
-                </SelectTrigger>
-                <SelectContent>
-                  {elements.map((element) => (
-                    <SelectItem key={element.name} value={element.name}>
-                      {element.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
-
-          <EditorSidebar
-            features={[]}
-            feature={features[selectedFeature]}
-            updateValues={(values) => {
-              setFeatures((prev) => {
-                const updatedFeature = {
-                  ...prev[selectedFeature],
-                  values: {
-                    ...prev[selectedFeature].values,
-                    ...values,
-                  },
-                };
-
-                setStoredValues((stored) => ({
-                  ...stored,
-                  [selectedFeature]: {
-                    ...(stored[selectedFeature] || {}),
-                    [updatedFeature.element.name]: updatedFeature.values,
-                  },
-                }));
-
-                return {
-                  ...prev,
-                  [selectedFeature]: updatedFeature,
-                };
-              });
-            }}
-          />
+              />
+            </div>
+          </ScrollArea>
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={70}>
