@@ -10,11 +10,21 @@ import { Label } from "@/components/ui/label"
 import { ColorPicker } from "@/components/color-picker"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import type { SkinElementPropertyValues, SkinElementPropertyType, SkinElementFeature } from "@/lib/types"
+import { Input } from "./ui/input"
 
 interface EditorSidebarProps {
   feature: SkinElementFeature,
   features: string[],
   updateValues: (values: SkinElementPropertyValues) => void,
+}
+
+// formats a key so that:
+// first letter is capitalized
+// camel case is converted to space separated words
+function formatKey(key: string) {
+  return key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (str) => str.toUpperCase())
 }
 
 export function EditorSidebar({
@@ -41,7 +51,7 @@ export function EditorSidebar({
                 case "color":
                   return (
                     <div key={key} className="space-y-2">
-                      <Label>{key}</Label>
+                      <Label>{formatKey(key)}</Label>
                       <ColorPicker
                         color={value}
                         onChange={(color) => updateValues({ ...currentValues, [key]: color })}
@@ -52,7 +62,7 @@ export function EditorSidebar({
                 case "boolean":
                   return (
                     <div key={key} className="flex items-center justify-between">
-                      <Label>{key}</Label>
+                      <Label>{formatKey(key)}</Label>
                       <Switch
                         checked={value}
                         onCheckedChange={(checked) => updateValues({ ...currentValues, [key]: checked })}
@@ -63,7 +73,16 @@ export function EditorSidebar({
                 case "number":
                   return (
                     <div key={key} className="space-y-2">
-                      <Label>{key}: {value}</Label>
+                      <Label>
+                        {formatKey(key)}: 
+
+                        <Input
+                          type="number"
+                          className="w-16 ml-2 border rounded p-1"
+                          value={value}
+                          onChange={(e) => updateValues({ ...currentValues, [key]: Number(e.target.value) })}
+                        />
+                      </Label>
                       <Slider
                         min={prop.options?.min ?? 0}
                         max={prop.options?.max ?? 100}
@@ -77,8 +96,8 @@ export function EditorSidebar({
                 case "string":
                   return (
                     <div key={key} className="space-y-2">
-                      <Label htmlFor={key}>{key}</Label>
-                      <input
+                      <Label htmlFor={key}>{formatKey(key)}</Label>
+                      <Input
                         id={key}
                         type="text"
                         className="w-full border rounded p-2"

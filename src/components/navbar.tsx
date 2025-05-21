@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Download, Save } from "lucide-react"
 import { useEffect, useState } from "react"
-import { Select, SelectContent, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "./ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
 import { HiMoon, HiSun } from 'react-icons/hi';
 
 export function Navbar() {
@@ -21,8 +21,6 @@ export function Navbar() {
       document.body.classList.toggle("dark", savedTheme === "dark")
     }
   }, [])
-
-  const handleToggle = () => setIsOpen(!isOpen);
 
   return (
     <header className="border-b px-4 py-3 flex items-center justify-between bg-background">

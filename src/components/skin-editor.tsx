@@ -44,7 +44,7 @@ const circleElement: SkinElement = {
 };
 
 const coolElement: SkinElement = {
-  name: "PlasmaGrid",
+  name: "Plasma Grid",
   height: 100,
   width: 100,
   render(ctx, values) {
@@ -142,6 +142,56 @@ const boxElement: SkinElement = {
   },
 };
 
+const fittedTextElement: SkinElement = {
+  name: "Fitted Text",
+  height: 100,
+  width: 100,
+  render(ctx, values) {
+    const maxFontSize = 100;
+    const minFontSize = 5;
+    let fontSize = maxFontSize;
+    let textWidth, textHeight;
+
+    const estimateTextHeight = (fontSize: number) => fontSize * 1.2; // rough multiplier
+    let font = values.font.length > 0 ? values.font : "Arial";
+
+    while (fontSize > minFontSize) {
+      ctx.font = `${fontSize}px ${font}`;
+      textWidth = ctx.measureText(values.text).width;
+      textHeight = estimateTextHeight(fontSize);
+
+      if (textWidth <= this.width && textHeight <= this.height) {
+        break;
+      }
+
+      fontSize -= 1;
+    }
+
+    ctx.font = `${fontSize}px ${font}`;
+    ctx.fillStyle = values.color;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(values.text, this.width / 2, this.height / 2);
+  },
+  properties: {
+    text: {
+      type: "string",
+      default: "Hello World",
+      parser: (input) => input,
+    },
+    font: {
+      type: "string",
+      default: "Arial",
+      parser: (input) => input,
+    },
+    color: {
+      type: "color",
+      default: "#000000",
+      parser: (input) => input,
+    },
+  },
+};
+
 function createDefaultValues(element: SkinElement): Record<string, any> {
   return Object.entries(element.properties).reduce((acc, [key, prop]) => {
     acc[key] = prop.default;
@@ -175,8 +225,72 @@ function createFeature(
   };
 }
 
+export function parseJSObjectLiteral(code: string): any {
+  try {
+    return new Function(`return (${code})`)();
+  } catch (err) {
+    console.error("Failed to parse JS object:", err);
+    return null;
+  }
+}
+
+
 export default function SkinEditor() {
-  const elements: SkinElement[] = [circleElement, coolElement, boxElement];
+  let elements: SkinElement[] = [
+    circleElement,
+    coolElement,
+    boxElement,
+    fittedTextElement,
+  ];
+
+  let stringParsedElement = `
+  {
+    name: "Cool Text",
+    height: 100,
+    width: 100,
+    render(ctx, values) {
+      ctx.fillStyle = values.color;
+      ctx.font = \`\${values.fontSize}px \${values.font}\`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(values.text, 50, 50);
+    },
+    properties: {
+      text: {
+        type: "string",
+        default: "Hello World",
+        parser: (input) => input,
+      },
+      fontSize: {
+        type: "number",
+        default: 20,
+        parser: (input) => parseInt(input),
+        options: {
+          min: 5,
+          max: 100,
+          step: 1,
+        },
+      },
+      font: {
+        type: "string",
+        default: "Arial",
+        parser: (input) => input,
+      },
+      color: {
+        type: "color",
+        default: "#000000",
+        parser: (input) => input,
+      },
+    },
+  }
+  `;
+
+  try {
+    const parsedElement = parseJSObjectLiteral(stringParsedElement);
+    elements.push(parsedElement);
+  } catch (error) {
+    console.error("Error parsing element:", error);
+  }
 
   const initialFeatures = {
     Note: createFeature("Note", coolElement),
@@ -186,9 +300,8 @@ export default function SkinEditor() {
     Triangle: createFeature("Triangle", circleElement),
   };
 
-  const [features, setFeatures] = useState<Record<string, SkinElementFeature>>(
-    initialFeatures
-  );
+  const [features, setFeatures] =
+    useState<Record<string, SkinElementFeature>>(initialFeatures);
 
   const [storedValues, setStoredValues] = useState<
     Record<string, Record<string, Record<string, any>>>
