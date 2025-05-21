@@ -55,14 +55,16 @@ export function PreviewPanel({
 
         <TabsContent value="preview" className="h-[calc(100%-3rem)]">
           <Card className="h-full">
-            <CardHeader className="pb-0">
-              <CardTitle>Single Preview</CardTitle>
-            </CardHeader>
-            <CardContent className="flex items-center justify-center h-[calc(100%-4rem)]">
-              <div className="relative flex items-center justify-center">
-                <SkinCanvasView feature={selectedElement} />
-              </div>
-            </CardContent>
+            <ScrollArea className="overflow-y-auto">
+              <CardHeader className="pb-6 sticky top-0 w-full bg-card flex justify-between">
+                <CardTitle>Single Preview</CardTitle>
+              </CardHeader>
+              <CardContent className="flex items-center justify-center h-[calc(100%-4rem)]">
+                <div className="relative flex items-center justify-center">
+                  <SkinCanvasView feature={selectedElement} />
+                </div>
+              </CardContent>
+            </ScrollArea>
           </Card>
         </TabsContent>
 
@@ -160,8 +162,8 @@ function SkinCanvasView({
         focused && "bg-muted/50"
       )}
       style={{
-        width: element.width * 4,
-        height: element.height * 4,
+        width: element.width * 2,
+        height: element.height * 2,
       }}
     />
   );

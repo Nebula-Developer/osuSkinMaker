@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -337,10 +337,21 @@ export default function SkinEditor() {
 
   const [selectedFeature, setSelectedFeature] = useState<string>("Note");
 
+  const [width, setWidth] = useState(window.innerWidth);
+
+  useEffect(() => {
+    const handleResize = () => setWidth(window.innerWidth);
+
+    window.addEventListener('resize', handleResize);
+    
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <div className="flex flex-col h-screen">
       <Navbar />
-      <ResizablePanelGroup direction="horizontal" className="flex-1">
+
+      <ResizablePanelGroup direction={width < 800 ? "vertical" : "horizontal"} className="flex-1">
         <ResizablePanel
           defaultSize={30}
           minSize={20}
@@ -349,118 +360,14 @@ export default function SkinEditor() {
         >
           <ScrollArea scrollHideDelay={0} className="h-full">
             <div className="space-y-8 flex flex-col p-4 pl-2">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle>Element Selection</CardTitle>
-                  <CardDescription>
-                    Choose the skin element to customize
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Select
-                    value={selectedFeature}
-                    onValueChange={(value) => setSelectedFeature(value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select element" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.keys(features).map((feature) => (
-                        <SelectItem key={feature} value={feature}>
-                          {feature}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle>Feature Properties</CardTitle>
-                  <CardDescription>
-                    Customize the properties of the selected feature
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Select
-                    value={features[selectedFeature].element.name}
-                    onValueChange={(value) => {
-                      const newElement = elements.find(
-                        (el) => el.name === value
-                      );
-                      if (!newElement) return;
-
-                      setStoredValues((prev) => {
-                        const prevElement = features[selectedFeature].element;
-                        const prevValues = features[selectedFeature].values;
-
-                        return {
-                          ...prev,
-                          [selectedFeature]: {
-                            ...prev[selectedFeature],
-                            [prevElement.name]: prevValues,
-                          },
-                        };
-                      });
-
-                      setFeatures((prev) => {
-                        const existingStored =
-                          storedValues[selectedFeature]?.[value];
-                        const prevValues = prev[selectedFeature].values;
-
-                        return {
-                          ...prev,
-                          [selectedFeature]: createFeature(
-                            selectedFeature,
-                            newElement,
-                            existingStored || prevValues
-                          ),
-                        };
-                      });
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select element" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {elements.map((element) => (
-                        <SelectItem key={element.name} value={element.name}>
-                          {element.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </CardContent>
-              </Card>
-
-              <EditorSidebar
-                features={[]}
-                feature={features[selectedFeature]}
-                updateValues={(values) => {
-                  setFeatures((prev) => {
-                    const updatedFeature = {
-                      ...prev[selectedFeature],
-                      values: {
-                        ...prev[selectedFeature].values,
-                        ...values,
-                      },
-                    };
-
-                    setStoredValues((stored) => ({
-                      ...stored,
-                      [selectedFeature]: {
-                        ...(stored[selectedFeature] || {}),
-                        [updatedFeature.element.name]: updatedFeature.values,
-                      },
-                    }));
-
-                    return {
-                      ...prev,
-                      [selectedFeature]: updatedFeature,
-                    };
-                  });
-                }}
+              <EditorOptionsHeader
+                features={features}
+                setFeatures={setFeatures}
+                storedValues={storedValues}
+                setStoredValues={setStoredValues}
+                selectedFeature={selectedFeature}
+                setSelectedFeature={setSelectedFeature}
+                elements={elements}
               />
             </div>
           </ScrollArea>
@@ -471,5 +378,142 @@ export default function SkinEditor() {
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>
+  );
+}
+
+function EditorOptionsHeader({
+  features,
+  setFeatures,
+  storedValues,
+  setStoredValues,
+  selectedFeature,
+  setSelectedFeature,
+  elements,
+}: {
+  features: Record<string, SkinElementFeature>;
+  setFeatures: React.Dispatch<
+    React.SetStateAction<Record<string, SkinElementFeature>>
+  >;
+  storedValues: Record<string, Record<string, Record<string, any>>>;
+  setStoredValues: React.Dispatch<
+    React.SetStateAction<Record<string, Record<string, Record<string, any>>>>
+  >;
+  selectedFeature: string;
+  setSelectedFeature: React.Dispatch<React.SetStateAction<string>>;
+  elements: SkinElement[];
+}) {
+  return (
+    <>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle>Element Selection</CardTitle>
+          <CardDescription>
+            Choose the skin element to customize
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Select
+            value={selectedFeature}
+            onValueChange={(value) => setSelectedFeature(value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select element" />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.keys(features).map((feature) => (
+                <SelectItem key={feature} value={feature}>
+                  {feature}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle>Feature Properties</CardTitle>
+          <CardDescription>
+            Customize the properties of the selected feature
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Select
+            value={features[selectedFeature].element.name}
+            onValueChange={(value) => {
+              const newElement = elements.find((el) => el.name === value);
+              if (!newElement) return;
+
+              setStoredValues((prev) => {
+                const prevElement = features[selectedFeature].element;
+                const prevValues = features[selectedFeature].values;
+
+                return {
+                  ...prev,
+                  [selectedFeature]: {
+                    ...prev[selectedFeature],
+                    [prevElement.name]: prevValues,
+                  },
+                };
+              });
+
+              setFeatures((prev) => {
+                const existingStored = storedValues[selectedFeature]?.[value];
+                const prevValues = prev[selectedFeature].values;
+
+                return {
+                  ...prev,
+                  [selectedFeature]: createFeature(
+                    selectedFeature,
+                    newElement,
+                    existingStored || prevValues
+                  ),
+                };
+              });
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select element" />
+            </SelectTrigger>
+            <SelectContent>
+              {elements.map((element) => (
+                <SelectItem key={element.name} value={element.name}>
+                  {element.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
+      <EditorSidebar
+        features={[]}
+        feature={features[selectedFeature]}
+        updateValues={(values) => {
+          setFeatures((prev) => {
+            const updatedFeature = {
+              ...prev[selectedFeature],
+              values: {
+                ...prev[selectedFeature].values,
+                ...values,
+              },
+            };
+
+            setStoredValues((stored) => ({
+              ...stored,
+              [selectedFeature]: {
+                ...(stored[selectedFeature] || {}),
+                [updatedFeature.element.name]: updatedFeature.values,
+              },
+            }));
+
+            return {
+              ...prev,
+              [selectedFeature]: updatedFeature,
+            };
+          });
+        }}
+      />
+    </>
   );
 }
