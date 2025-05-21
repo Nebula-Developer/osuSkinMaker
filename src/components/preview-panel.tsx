@@ -8,6 +8,8 @@ import { Switch } from "./ui/switch";
 import { HiOutlineArrowsExpand } from "react-icons/hi";
 import { LiaCompressArrowsAltSolid } from "react-icons/lia";
 import { Button } from "./ui/button";
+import { Slider } from "./ui/slider";
+import { Label } from "./ui/label";
 
 export function PreviewPanel({
   feature,
@@ -19,6 +21,7 @@ export function PreviewPanel({
   const selectedElement = features[feature];
   const [highlightSelected, setHighlightSelected] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [scale, setScale] = useState(2);
 
   if (!feature)
     return <div className="h-full bg-muted/30 p-6">No element selected</div>;
@@ -58,10 +61,29 @@ export function PreviewPanel({
             <ScrollArea className="overflow-y-auto">
               <CardHeader className="pb-6 sticky top-0 w-full bg-card flex justify-between">
                 <CardTitle>Single Preview</CardTitle>
+
+                <div className="flex items-center gap-2">
+                  <Label
+                    htmlFor="scale"
+                    className="select-none text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Scale
+                  </Label>
+
+                  <Slider
+                    id="scale"
+                    value={[scale]}
+                    onValueChange={(value) => setScale(value[0])}
+                    min={1}
+                    max={4}
+                    step={0.1}
+                    className="w-[100px]"
+                  />
+                </div>
               </CardHeader>
               <CardContent className="flex items-center justify-center h-[calc(100%-4rem)]">
                 <div className="relative flex items-center justify-center">
-                  <SkinCanvasView feature={selectedElement} />
+                  <SkinCanvasView feature={selectedElement} scale={scale} />
                 </div>
               </CardContent>
             </ScrollArea>
@@ -75,18 +97,39 @@ export function PreviewPanel({
                 <CardTitle>Full Preview</CardTitle>
 
                 <div className="gap-2 flex items-center">
-                  <label
-                    htmlFor="highlight-selected"
-                    className="select-none text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    Highlight Selected
-                  </label>
+                  <div className="flex items-center gap-2">
+                    <Label
+                      htmlFor="highlight-selected"
+                      className="select-none text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Highlight Selected
+                    </Label>
 
-                  <Switch
-                    id="highlight-selected"
-                    checked={highlightSelected}
-                    onCheckedChange={setHighlightSelected}
-                  />
+                    <Switch
+                      id="highlight-selected"
+                      checked={highlightSelected}
+                      onCheckedChange={setHighlightSelected}
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Label
+                      htmlFor="scale"
+                      className="select-none text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Scale
+                    </Label>
+
+                    <Slider
+                      id="scale"
+                      value={[scale]}
+                      onValueChange={(value) => setScale(value[0])}
+                      min={1}
+                      max={4}
+                      step={0.1}
+                      className="w-[100px]"
+                    />
+                  </div>
                 </div>
               </CardHeader>
 
@@ -95,15 +138,16 @@ export function PreviewPanel({
                   {Object.entries(features).map(([key, i_feature]) => (
                     <div
                       key={key}
-                      className="flex flex-col gap-3 justify-center items-center"
+                      className="flex flex-col gap-0.5 justify-center items-center"
                     >
-                      <div className="text-xl font-bold">
+                      <div className="text-sm font-light text-muted-foreground">
                         {i_feature.feature}
                       </div>
 
                       <SkinCanvasView
                         feature={i_feature}
                         focused={highlightSelected && key === feature}
+                        scale={scale}
                       />
                     </div>
                   ))}
@@ -120,14 +164,16 @@ export function PreviewPanel({
 function SkinCanvasView({
   feature,
   focused,
+  scale,
 }: {
   feature: SkinElementFeature;
   focused?: boolean;
+  scale: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
   const element = feature.element;
-  const scale = 2;
+  const renderScale = 2;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -136,12 +182,12 @@ function SkinCanvasView({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    canvas.width = element.width * scale;
-    canvas.height = element.height * scale;
+    canvas.width = element.width * renderScale;
+    canvas.height = element.height * renderScale;
 
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.scale(scale, scale);
+      ctx.scale(renderScale, renderScale);
       element.render(ctx, feature.values);
     };
 
@@ -155,16 +201,21 @@ function SkinCanvasView({
   }, [canvasRef, element, feature.values]);
 
   return (
-    <canvas
-      ref={canvasRef}
+    <div
       className={cn(
-        "border rounded-md p-4 transition-colors",
+        "border rounded-md transition-colors",
+        "p-4 w-full h-full",
+        "flex items-center justify-center",
         focused && "bg-muted/50"
       )}
-      style={{
-        width: element.width * 2,
-        height: element.height * 2,
-      }}
-    />
+    >
+      <canvas
+        ref={canvasRef}
+        style={{
+          width: element.width * scale,
+          height: element.height * scale,
+        }}
+      />
+    </div>
   );
 }

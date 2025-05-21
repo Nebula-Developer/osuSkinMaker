@@ -19,6 +19,10 @@ export function Navbar() {
     if (savedTheme) {
       setTheme(savedTheme)
       document.body.classList.toggle("dark", savedTheme === "dark")
+    } else {
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
+      setTheme(prefersDark ? "dark" : "light")
+      document.body.classList.toggle("dark", prefersDark)
     }
   }, [])
 
