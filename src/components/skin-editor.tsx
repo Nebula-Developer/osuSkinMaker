@@ -193,12 +193,12 @@ const fittedTextElement: SkinElement = {
   },
 };
 
-function createDefaultValues(element: SkinElement): Record<string, any> {
-  return Object.entries(element.properties).reduce((acc, [key, prop]) => {
-    acc[key] = prop.default;
-    return acc;
-  }, {} as Record<string, any>);
-}
+// function createDefaultValues(element: SkinElement): Record<string, any> {
+//   return Object.entries(element.properties).reduce((acc, [key, prop]) => {
+//     acc[key] = prop.default;
+//     return acc;
+//   }, {} as Record<string, any>);
+// }
 
 function createFeature(
   feature: string,
