@@ -1,11 +1,12 @@
 import { StrictMode, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
-import './index.css'
 import App from './App.tsx'
 import { Toaster } from './components/ui/sonner.tsx'
 import { useThemeStore } from './store/themeStore.ts'
 import { cn } from './lib/utils.ts'
 
+import './index.css'
+import './custom.css'
 
 function ThemeWrapper({ children }: { children: React.ReactNode }) {
   const theme = useThemeStore()
