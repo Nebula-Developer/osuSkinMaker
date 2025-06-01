@@ -17,7 +17,6 @@ import { Button } from "./ui/button";
 import type {
   ElementComponentData,
   Point,
-  PropertyTypeSettings,
 } from "@/lib/types";
 import { useEffect, useState } from "react";
 import { useThrottledCallback } from "use-debounce";

@@ -1,7 +1,5 @@
 import type { Point } from "@/lib/types";
 import { useRef, useState, useEffect } from "react";
-import { Slider } from "./ui/slider";
-import { Input } from "./ui/input";
 import { cn } from "@/lib/utils";
 
 export type DraggablePointInputProps = {
