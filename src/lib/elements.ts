@@ -15,6 +15,7 @@ export const RadiusProperty: PropertyTypeSettings = {
     default: 0.5,
     // min: 0,
     // max: 5,
+    customStep: true
   },
 };
 
@@ -29,6 +30,7 @@ export const PositionProperty: PropertyTypeSettings = {
     max: { x: 1.5, y: 1.5 },
     step: 0.25,
     dragPane: true,
+    customStep: true,
   },
 };
 
@@ -42,17 +44,31 @@ export const CircleClipComponent: Component = {
       description:
         "The origin point of the circle, relative to the canvas size",
     },
+    inverse: {
+      label: "Inverse Clip",
+      description:
+        "If true, the circle will clip everything outside of it instead of inside",
+      type: "boolean",
+      settings: { default: false },
+    },
   },
   render: (context) => {
     const { ctx, size, properties } = context;
-    const { radius, position } = properties;
+    const { radius, position, inverse } = properties;
     const x = position.x * size.width;
     const y = position.y * size.height;
     const r = (radius * Math.min(size.width, size.height)) / 2;
     ctx.save();
     ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.clip();
+
+    if (inverse) {
+      ctx.rect(0, 0, size.width, size.height);
+      ctx.arc(x, y, r, 0, Math.PI * 2, true);
+      ctx.clip("evenodd");
+    } else {
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.clip();
+    }
   },
 };
 
@@ -147,8 +163,7 @@ export const BoxComponent: Component = {
     },
     origin: {
       label: "Origin",
-      description:
-        "The origin point of the box, relative to the canvas size",
+      description: "The origin point of the box, relative to the canvas size",
       type: "point",
       settings: {
         default: { x: 0.5, y: 0.5 },
@@ -157,8 +172,8 @@ export const BoxComponent: Component = {
         step: 0.01,
         dragPane: true,
         customStep: true,
-      }
-    }
+      },
+    },
   },
   render: (context) => {
     const { ctx, size, properties } = context;
@@ -170,12 +185,7 @@ export const BoxComponent: Component = {
     const origin = properties.origin;
     const x = origin.x * size.width - (boxSize.x * size.width) / 2;
     const y = origin.y * size.height - (boxSize.y * size.height) / 2;
-    ctx.fillRect(
-      x,
-      y,
-      boxSize.x * size.width,
-      boxSize.y * size.height
-    );
+    ctx.fillRect(x, y, boxSize.x * size.width, boxSize.y * size.height);
     ctx.restore();
   },
 };

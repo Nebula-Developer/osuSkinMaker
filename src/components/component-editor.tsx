@@ -14,10 +14,7 @@ import { Input } from "./ui/input";
 import { HiRefresh } from "react-icons/hi";
 import { Button } from "./ui/button";
 
-import type {
-  ElementComponentData,
-  Point,
-} from "@/lib/types";
+import type { ElementComponentData, Point } from "@/lib/types";
 import { useEffect, useState } from "react";
 import { useThrottledCallback } from "use-debounce";
 import { DraggablePointInput } from "./draggable-point";
@@ -50,6 +47,15 @@ export function ComponentEditor({
   useEffect(() => {
     setValues(realValues);
   }, [realValues]);
+
+  const [customSteps, setCustomSteps] = useState<Record<string, number>>({});
+
+  function setCustomStep(key: string, step: number) {
+    setCustomSteps((prev) => ({
+      ...prev,
+      [key]: step,
+    }));
+  }
 
   return (
     <ScrollArea className="h-full">
@@ -110,25 +116,67 @@ export function ComponentEditor({
               case "number":
                 return (
                   <div key={key} className="space-y-2">
-                    <Input
-                      type="number"
-                      className="w-20 border rounded p-1"
-                      value={value}
-                      onChange={(e) => {
-                        let num = Number(e.target.value);
-                        if (isNaN(num)) return;
+                    <div className="flex gap-4 items-end">
+                      <div className="flex flex-col">
+                        <Label className="text-sm flex items-end">
+                          Value
+                          <span className="text-xs text-muted-foreground">
+                            {settings.min ?? 0} - {settings.max ?? 1}
+                          </span>
+                        </Label>
 
-                        num = Math.max(settings.min ?? 0, num);
-                        num = Math.min(settings.max ?? 1, num);
+                        <Input
+                          type="number"
+                          className="w-20 border rounded p-1"
+                          value={value}
+                          step={customSteps[key] ?? settings.step ?? 0.1}
+                          onChange={(e) => {
+                            let num = Number(e.target.value);
+                            if (isNaN(num)) return;
 
-                        throttledUpdateValues({ ...values, [key]: num });
-                      }}
-                    />
+                            num = Math.max(settings.min ?? 0, num);
+                            num = Math.min(settings.max ?? 1, num);
+
+                            if (!settings.customStep)
+                              num =
+                                Math.round(num / (settings.step ?? 1)) *
+                                (settings.step ?? 1);
+
+                            throttledUpdateValues({ ...values, [key]: num });
+                          }}
+                        />
+                      </div>
+
+                      {settings.customStep && (
+                        <div className="flex flex-col">
+                          <Label className="text-sm flex items-end">
+                            Step
+                            <span className="text-xs text-muted-foreground">
+                              (default: {settings.step ?? 0})
+                            </span>
+                          </Label>
+                          <Input
+                            type="number"
+                            className="w-20 border rounded p-1"
+                            value={customSteps[key] ?? settings.step ?? 0}
+                            step={settings.step ?? 0.1}
+                            onChange={(e) => {
+                              let step = Number(e.target.value);
+                              if (isNaN(step) || step < 0) step = 0;
+                              setCustomStep(key, step);
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
 
                     <Slider
                       min={settings.min ?? 0}
                       max={settings.max ?? 1}
-                      step={settings.step ?? Number.EPSILON}
+                      step={Math.max(
+                        customSteps[key] ?? settings.step ?? 0,
+                        Number.EPSILON
+                      )}
                       value={[value]}
                       onValueChange={(val) =>
                         throttledUpdateValues({ ...values, [key]: val[0] })
@@ -275,12 +323,18 @@ export function ComponentEditor({
               case "point":
                 let min = settings.min ?? { x: 0, y: 0 };
                 let max = settings.max ?? { x: 1, y: 1 };
+                let step = Math.max(customSteps[key] ?? settings.step ?? 0.1, Number.EPSILON);
+
                 function setValue(newValue: Point) {
                   throttledUpdateValues({
                     ...values,
                     [key]: clampPoint(newValue, min, max),
                   });
                 }
+                
+                let stringStep = "0";
+                if (settings.step)
+                  stringStep = typeof settings.step === "number" ? settings.step.toFixed(2) : `${settings.step.x.toFixed(2)}, ${settings.step.y.toFixed(2)}`;
 
                 return (
                   <div key={key} className="space-y-2">
@@ -289,7 +343,7 @@ export function ComponentEditor({
                         value={value}
                         min={min}
                         max={max}
-                        step={settings.step}
+                        step={step}
                         onChange={(newValue) =>
                           throttledUpdateValues({
                             ...values,
@@ -305,7 +359,7 @@ export function ComponentEditor({
                         <Slider
                           min={min.x}
                           max={max.x}
-                          step={0.01}
+                          step={step}
                           value={[value.x]}
                           onValueChange={([x]) =>
                             setValue({
@@ -322,7 +376,7 @@ export function ComponentEditor({
                         <Slider
                           min={min.y}
                           max={max.y}
-                          step={0.01}
+                          step={step}
                           value={[value.y]}
                           onValueChange={([y]) =>
                             setValue({
@@ -337,38 +391,89 @@ export function ComponentEditor({
 
                     {/* Inputs */}
                     <div className="flex space-x-2 mt-2">
-                      <Input
-                        type="number"
-                        className="w-20 border rounded px-2 py-1"
-                        value={value.x}
-                        min={min.x}
-                        max={max.x}
-                        step={0.01}
-                        onChange={(e) =>
-                          setValue({
-                            x: Number(e.target.value),
-                            y: value.y,
-                          })
-                        }
-                      />
-                      <Input
-                        type="number"
-                        className="w-20 border rounded px-2 py-1"
-                        value={value.y}
-                        min={min.y}
-                        max={max.y}
-                        step={0.01}
-                        onChange={(e) =>
-                          setValue({
-                            x: value.x,
-                            y: Number(e.target.value),
-                          })
-                        }
-                      />
+                      <div className="flex-col">
+                        <Label className="flex items-start mb-1">
+                          X
+                          <span className="text-xs text-muted-foreground">
+                            ({min.x} - {max.x})
+                          </span>
+                        </Label>
+
+                        <Input
+                          type="number"
+                          className="w-20 border rounded px-2 py-1"
+                          value={value.x}
+                          min={min.x}
+                          max={max.x}
+                          step={step}
+                          onChange={(e) => {
+                            if (isNaN(Number(e.target.value))) return;
+                            let num = Number(e.target.value);
+
+                            if (!settings.customStep)
+                              num = Math.round(num / step) * step;
+
+                            setValue({
+                              x: num,
+                              y: value.y,
+                            });
+                          }}
+                        />
+                      </div>
+                      <div className="flex-col">
+                        <Label className="flex items-start mb-1">
+                          Y
+                          <span className="text-xs text-muted-foreground">
+                            ({min.y} - {max.y})
+                          </span>
+                        </Label>
+                        <Input
+                          type="number"
+                          className="w-20 border rounded px-2 py-1"
+                          value={value.y}
+                          min={min.y}
+                          max={max.y}
+                          step={step}
+                          onChange={(e) => {
+                            if (isNaN(Number(e.target.value))) return;
+                            let num = Number(e.target.value);
+
+                            if (!settings.customStep)
+                              num = Math.round(num / step) * step;
+
+                            setValue({
+                              x: value.x,
+                              y: num,
+                            });
+                          }}
+                        />
+                      </div>
+
+                      {settings.customStep && (
+                        <div className="flex-col">
+                          <Label className="flex items-start mb-1">
+                            Step
+                            <span className="text-xs text-muted-foreground">
+                              (default: {stringStep})
+                            </span>
+                          </Label>
+                          <Input
+                            type="number"
+                            className="w-20 border rounded px-2 py-1"
+                            value={customSteps[key] ?? step}
+                            step={step}
+                            onChange={(e) => {
+                              let newStep = Number(e.target.value);
+                              if (isNaN(newStep) || newStep < 0)
+                                newStep = 0;
+                              setCustomStep(key, newStep);
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
-
               default:
                 return (
                   <div key={key} className="text-destructive">
