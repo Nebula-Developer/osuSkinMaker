@@ -49,6 +49,7 @@ import {
   CommandList,
   CommandItem,
 } from "./components/ui/command";
+import { Separator } from "./components/ui/separator";
 
 function ComponentView({
   elementIndex,
@@ -164,30 +165,27 @@ function App() {
           className="bg-background"
         >
           <ScrollArea className="w-full h-full overflow-x-auto">
-            <Select
-              value={elementId.toString()}
-              onValueChange={(value) => setElementId(Number(value))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select Element" />
-              </SelectTrigger>
-
-              <SelectContent>
-                {skin.elements.map((el, index) => (
-                  <SelectItem key={index} value={index.toString()}>
-                    {el.displayName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
             <div className="p-5 flex flex-col gap-5">
-              {/* <Button
-                variant="secondary"
-                onClick={() => addComponent(TestComponent, randChars(5))}
+              <h2 className="text-2xl font-semibold">Element Editor</h2>
+
+              <Select
+                value={elementId.toString()}
+                onValueChange={(value) => setElementId(Number(value))}
               >
-                Add Component
-              </Button> */}
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select Element" />
+                </SelectTrigger>
+
+                <SelectContent>
+                  {skin.elements.map((el, index) => (
+                    <SelectItem key={index} value={index.toString()}>
+                      {el.displayName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Separator />
 
               <Popover
                 open={componentAddOpen}
