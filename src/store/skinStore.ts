@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { EmptySkin, getDefaultProperties } from "@/lib/elements";
-import type { Skin, Component } from "@/lib/types";
+import type { Skin, Component, ComponentRenderingContext } from "@/lib/types";
 import { useCallback } from "react";
 
 type SkinStore = {
@@ -15,16 +15,18 @@ type SkinStore = {
       customName?: string;
     }
   ) => void;
+  updateRenderMethod: (
+    elementIndex: number,
+    componentIndex: number,
+    method: (context: ComponentRenderingContext) => void
+  ) => void;
   moveComponent: (elementIndex: number, from: number, to: number) => void;
   addComponent: (
     elementIndex: number,
     component: Component,
     customName?: string
   ) => void;
-  removeComponent: (
-    elementIndex: number,
-    componentIndex: number
-  ) => void;
+  removeComponent: (elementIndex: number, componentIndex: number) => void;
 };
 
 export const useSkinStore = create<SkinStore>((set) => ({
@@ -37,12 +39,44 @@ export const useSkinStore = create<SkinStore>((set) => ({
       const elements = [...state.skin.elements];
       const element = { ...elements[elementIndex] };
       const components = [...element.components];
-      
+
       components[componentIndex] = {
         ...components[componentIndex],
         properties: updates.props || components[componentIndex].properties,
-        disabled: updates.disabled !== undefined ? updates.disabled : components[componentIndex].disabled,
-        customName: updates.customName !== undefined ? updates.customName : components[componentIndex].customName
+        disabled:
+          updates.disabled !== undefined
+            ? updates.disabled
+            : components[componentIndex].disabled,
+        customName:
+          updates.customName !== undefined
+            ? updates.customName
+            : components[componentIndex].customName,
+      };
+
+      element.components = components;
+      elements[elementIndex] = element;
+
+      return {
+        skin: {
+          ...state.skin,
+          elements,
+        },
+      };
+    });
+  },
+
+  updateRenderMethod: (elementIndex, componentIndex, method) => {
+    set((state) => {
+      const elements = [...state.skin.elements];
+      const element = { ...elements[elementIndex] };
+      const components = [...element.components];
+
+      components[componentIndex] = {
+        ...components[componentIndex],
+        component: {
+          ...components[componentIndex].component,
+          render: method,
+        },
       };
 
       element.components = components;
@@ -136,11 +170,14 @@ export function useElement(index: number) {
   );
 
   const handleUpdateComponent = useCallback(
-    (componentIndex: number, updates: {
-      props?: Record<string, any>;
-      disabled?: boolean;
-      customName?: string;
-    }) => updateComponent(index, componentIndex, updates),
+    (
+      componentIndex: number,
+      updates: {
+        props?: Record<string, any>;
+        disabled?: boolean;
+        customName?: string;
+      }
+    ) => updateComponent(index, componentIndex, updates),
     [updateComponent, index]
   );
 
@@ -165,29 +202,38 @@ export function useElement(index: number) {
 }
 
 export function useComponent(elementIndex: number, componentIndex: number) {
-  const { updateComponent, moveComponent } = useElement(elementIndex);
+  const updateComponent = useSkinStore((s) => s.updateComponent);
+  const moveComponent = useSkinStore((s) => s.moveComponent);
+  const updateRenderMethod = useSkinStore((s) => s.updateRenderMethod);
 
   const handleUpdate = (updates: {
     props?: Record<string, any>;
     disabled?: boolean;
     customName?: string;
   }) => {
-    updateComponent(componentIndex, updates);
+    updateComponent(elementIndex, componentIndex, updates);
   };
 
   const handleMoveUp = () => {
     if (componentIndex > 0) {
-      moveComponent(componentIndex, componentIndex - 1);
+      moveComponent(elementIndex, componentIndex, componentIndex - 1);
     }
   };
 
   const handleMoveDown = () => {
-    moveComponent(componentIndex, componentIndex + 1);
+    moveComponent(elementIndex, componentIndex, componentIndex + 1);
+  };
+
+  const handleUpdateRenderMethod = (
+    method: (context: ComponentRenderingContext) => void
+  ) => {
+    updateRenderMethod(elementIndex, componentIndex, method);
   };
 
   return {
     handleUpdate,
     handleMoveUp,
     handleMoveDown,
+    handleUpdateRenderMethod,
   };
 }

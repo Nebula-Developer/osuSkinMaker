@@ -23,7 +23,7 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from "./components/ui/resizable";
-import { useState, useEffect } from "react";
+import { useState, useEffect, type JSX } from "react";
 import { ScrollArea } from "./components/ui/scroll-area";
 import { cn } from "./lib/utils";
 import { Switch } from "./components/ui/switch";
@@ -50,6 +50,22 @@ import {
   CommandItem,
 } from "./components/ui/command";
 import { Separator } from "./components/ui/separator";
+import Editor from "@monaco-editor/react";
+import { useThemeStore } from "./store/themeStore";
+import { toast } from "sonner";
+
+const docString = `
+/**
+ * Renders the component on the canvas.
+ * @param {Object} context - The rendering context.
+ * @param {CanvasRenderingContext2D} context.ctx - The 2D rendering context for the canvas.
+ * @param {Object} context.size - The size of the canvas.
+ * @param {number} context.size.width - The width of the canvas.
+ * @param {number} context.size.height - The height of the canvas.
+ * @param {Object} context.properties - The properties of the component.
+ * @param {any} context.properties - The properties of the component.
+ * @returns {void}
+ */`.trim();
 
 function ComponentView({
   elementIndex,
@@ -64,23 +80,35 @@ function ComponentView({
   element: Element;
   onRemove?: () => void;
 }) {
-  const { handleUpdate, handleMoveUp, handleMoveDown } = useComponent(
-    elementIndex,
-    componentIndex
-  );
+  const {
+    handleUpdate,
+    handleMoveUp,
+    handleMoveDown,
+    handleUpdateRenderMethod,
+  } = useComponent(elementIndex, componentIndex);
+  const theme = useThemeStore((s) => s.theme);
+
+  const [code, setCode] = useState(data.component.render.toString());
 
   return (
     <div className="p-5 bg-card border rounded-lg shadow-md border-b last:border-b-0">
-      <div className="flex gap-2 mb-2">
-        <h3 className="text-lg font-semibold">{data.component.name}</h3>
-        {data.customName && <Badge>{data.customName}</Badge>}
+      <div className="flex justify-between items-start">
+        <div className="flex gap-2 mb-2">
+          <h3 className="text-lg font-semibold">{data.component.name}</h3>
+          {data.customName && <Badge>{data.customName}</Badge>}
+        </div>
+
+        <Switch
+          checked={!data.disabled}
+          onCheckedChange={(checked) =>
+            handleUpdate({ disabled: !checked })
+          }
+        />
       </div>
 
       <Accordion type="single" collapsible className="w-full">
         <AccordionItem value="item-1">
-          <Button variant="outline" className="w-full justify-between" asChild>
-            <AccordionTrigger>Edit Properties</AccordionTrigger>
-          </Button>
+          <AccordionTrigger>Edit Properties</AccordionTrigger>
           <AccordionContent
             className="flex flex-col gap-4 text-balance"
             animate={false}
@@ -89,6 +117,63 @@ function ComponentView({
               component={data}
               updateValues={(props) => handleUpdate({ props })}
             />
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem value="item-2">
+          <AccordionTrigger>Advanced Settings</AccordionTrigger>
+          <AccordionContent
+            className="flex flex-col gap-4 text-balance"
+            animate={false}
+          >
+            <Editor
+              height="500px"
+              defaultLanguage="javascript"
+              defaultValue={docString + '\n' + data.component.render.toString().trim()}
+              theme={theme === "dark" ? "vs-dark" : "vs-light"}
+              options={{
+                fontSize: 14,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                formatOnPaste: true,
+                formatOnType: true,
+                inlayHints: {
+                  enabled: "on",
+                },
+                suggestOnTriggerCharacters: true,
+                tabSize: 2
+              }}
+              onChange={(value) => {
+                setCode(value || "");
+              }}
+              onMount={(editor) => {
+                editor.getAction("editor.action.formatDocument")!.run();
+              }}
+            />
+
+            <Button
+              variant="outline"
+              className="mt-2"
+              onClick={() => {
+                try {
+                  // (context) => void
+                  const func = eval(
+                    `(${code})`
+                  ) as (context: any) => void;
+
+                  handleUpdateRenderMethod(func);
+
+                  toast.success("Component code updated successfully!");
+                } catch (error) {
+                  console.error("Error updating component code:", error);
+                  toast.error(
+                    "Failed to update component code. Check console for details."
+                  );
+                }
+              }}
+            >
+              Update Code
+            </Button>
           </AccordionContent>
         </AccordionItem>
       </Accordion>

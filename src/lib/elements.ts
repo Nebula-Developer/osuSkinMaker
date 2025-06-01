@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import type {
   PropertyTypeSettings,
   Component,
@@ -204,11 +205,22 @@ export function drawElement(
 
   element.components.forEach((component) => {
     if (component.disabled) return;
-    component.component.render({
-      ctx,
-      size: element.size,
-      properties: component.properties,
-    });
+
+    try {
+      component.component.render({
+        ctx,
+        size: element.size,
+        properties: component.properties,
+      });
+    } catch (error) {
+      toast.error(
+        `Error rendering component. See console for details.`,
+      );
+      console.error(
+        `Error rendering component "${component.component.name}" in element "${element.displayName}":`,
+        error,
+      );
+    }
   });
 
   ctx.restore();
