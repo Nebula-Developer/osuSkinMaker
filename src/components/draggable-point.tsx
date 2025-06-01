@@ -2,155 +2,149 @@ import type { Point } from "@/lib/types";
 import { useRef, useState, useEffect } from "react";
 import { Slider } from "./ui/slider";
 import { Input } from "./ui/input";
+import { cn } from "@/lib/utils";
 
 export type DraggablePointInputProps = {
   value: Point;
   min: Point;
   max: Point;
+  step?: number | Point;
   onChange: (value: Point) => void;
 };
 
 export function DraggablePointInput({
   value,
-  max,
   min,
+  max,
+  step = 0.01,
   onChange,
 }: DraggablePointInputProps) {
-  const boxRef = useRef<HTMLDivElement>(null);
-  const [dragging, setDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
-  const aspectRatio = max.x / max.y;
-
-  const rangeX = max.x - min.x;
-  const rangeY = max.y - min.y;
-
-  const BOX_HEIGHT = 150;
-  const BOX_WIDTH = BOX_HEIGHT * (rangeX / rangeY);
-
-  const posX = ((value.x - min.x) / rangeX) * BOX_WIDTH;
-  const posY = ((value.y - min.y) / rangeY) * BOX_HEIGHT;
-
-  const onMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setDragging(true);
+  const range = {
+    x: max.x - min.x,
+    y: max.y - min.y,
   };
 
-  const onMouseUp = (_: MouseEvent) => {
-    setDragging(false);
+  const BOX_HEIGHT = 300;
+  const BOX_WIDTH = BOX_HEIGHT * (range.x / range.y);
+
+  const normalizedPosition = {
+    x: ((value.x - min.x) / range.x) * BOX_WIDTH,
+    y: ((value.y - min.y) / range.y) * BOX_HEIGHT,
   };
 
-  const onMouseMove = (e: MouseEvent) => {
-    if (!dragging || !boxRef.current) return;
+  const applyStepAndClamp = (input: Point): Point => {
+    const stepped = { ...input };
 
-    const rect = boxRef.current.getBoundingClientRect();
+    if (typeof step === "number") {
+      stepped.x = Math.round(stepped.x / step) * step;
+      stepped.y = Math.round(stepped.y / step) * step;
+    } else {
+      stepped.x = Math.round(stepped.x / step.x) * step.x;
+      stepped.y = Math.round(stepped.y / step.y) * step.y;
+    }
 
-    let newX = e.clientX - rect.left;
-    let newY = e.clientY - rect.top;
-
-    newX = Math.max(0, Math.min(newX, BOX_WIDTH));
-    newY = Math.max(0, Math.min(newY, BOX_HEIGHT));
-
-    const newValue = {
-      x: (newX / BOX_WIDTH) * rangeX + min.x,
-      y: (newY / BOX_HEIGHT) * rangeY + min.y,
+    return {
+      x: Math.min(max.x, Math.max(min.x, stepped.x)),
+      y: Math.min(max.y, Math.max(min.y, stepped.y)),
     };
-    onChange(newValue);
+  };
+
+  const updateValueFromMouse = (clientX: number, clientY: number) => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const offsetX = Math.max(
+      0,
+      Math.min(clientX - rect.left, container.clientWidth)
+    );
+    const offsetY = Math.max(
+      0,
+      Math.min(clientY - rect.top, container.clientHeight)
+    );
+
+    const newPoint: Point = {
+      x: (offsetX / container.clientWidth) * range.x + min.x,
+      y: (offsetY / container.clientHeight) * range.y + min.y,
+    };
+
+    onChange(applyStepAndClamp(newPoint));
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    updateValueFromMouse(e.clientX, e.clientY);
+  };
+
+  const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+
+    updateValueFromMouse(clientX, clientY);
   };
 
   useEffect(() => {
-    if (dragging) {
-      window.addEventListener("mouseup", onMouseUp);
-      window.addEventListener("mousemove", onMouseMove);
-    } else {
-      window.removeEventListener("mouseup", onMouseUp);
-      window.removeEventListener("mousemove", onMouseMove);
-    }
-    return () => {
-      window.removeEventListener("mouseup", onMouseUp);
-      window.removeEventListener("mousemove", onMouseMove);
+    const move = (e: MouseEvent | TouchEvent) => {
+      const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+      const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+      updateValueFromMouse(clientX, clientY);
     };
-  }, [dragging]);
+
+    const up = () => setIsDragging(false);
+
+    if (isDragging) {
+      window.addEventListener("mousemove", move);
+      window.addEventListener("mouseup", up);
+      window.addEventListener("touchmove", move);
+      window.addEventListener("touchend", up);
+    }
+
+    return () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      window.removeEventListener("touchmove", move);
+      window.removeEventListener("touchend", up);
+    };
+  }, [isDragging]);
 
   return (
     <div>
-      {/* Draggable box */}
+      {/* Interactive Drag Box */}
       <div
-        ref={boxRef}
+        ref={containerRef}
         style={{
-          position: "relative",
-          width: BOX_WIDTH,
-          height: BOX_HEIGHT,
-          background: "#eee",
-          border: "1px solid #ccc",
-          borderRadius: 4,
-          userSelect: "none",
-          marginBottom: 12,
+          width: `calc(min(${BOX_WIDTH}px, 100%))`,
+          aspectRatio: `${BOX_WIDTH} / ${BOX_HEIGHT}`,
+          touchAction: "none",
         }}
+        onMouseDown={handleMouseDown}
+        onTouchStart={handlePointerDown}
+        className={cn(
+          "relative bg-accent border rounded-md select-none mb-3",
+          isDragging ? "cursor-grabbing" : "cursor-grab"
+        )}
       >
         <div
-          onMouseDown={onMouseDown}
           style={{
-            position: "absolute",
-            width: 20,
-            height: 20,
-            background: "#007bff",
-            borderRadius: "50%",
-            cursor: "grab",
-            left: posX - 10,
-            top: posY - 10,
-            touchAction: "none",
+            left: `${(normalizedPosition.x / BOX_WIDTH) * 100}%`,
+            top: `${(normalizedPosition.y / BOX_HEIGHT) * 100}%`,
           }}
+          className={cn(
+            "absolute w-5 h-5 rounded-full -translate-x-1/2 -translate-y-1/2",
+            isDragging ? "bg-destructive" : "bg-primary"
+          )}
         />
       </div>
 
       {/* Sliders */}
-      <div className="space-y-2">
-        <label className="block">
-          X: {value.x.toFixed(2)}
-          <Slider
-            min={min.x}
-            max={max.x}
-            step={0.01}
-            value={[value.x]}
-            onValueChange={([x]) => onChange({ x, y: value.y })}
-            className="w-full"
-          />
-        </label>
-
-        <label className="block">
-          Y: {value.y.toFixed(2)}
-          <Slider
-            min={min.y}
-            max={max.y}
-            step={0.01}
-            value={[value.y]}
-            onValueChange={([y]) => onChange({ x: value.x, y })}
-            className="w-full"
-          />
-        </label>
-      </div>
-
-      {/* Number inputs */}
-      <div className="flex space-x-2 mt-2">
-        <Input
-          type="number"
-          className="w-20 border rounded px-2 py-1"
-          value={value.x}
-          min={min.x}
-          max={max.x}
-          step={0.01}
-          onChange={(e) => onChange({ x: Number(e.target.value), y: value.y })}
-        />
-        <Input
-          type="number"
-          className="w-20 border rounded px-2 py-1"
-          value={value.y}
-          min={min.y}
-          max={max.y}
-          step={0.01}
-          onChange={(e) => onChange({ x: value.x, y: Number(e.target.value) })}
-        />
-      </div>
+      
     </div>
   );
 }

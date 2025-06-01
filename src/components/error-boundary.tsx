@@ -29,7 +29,7 @@ export class ErrorBoundary extends React.Component<
         <div className="flex items-center justify-center p-8 bg-accent rounded-md w-full">
           <div className="text-center container flex flex-col items-center justify-center">
             <h1 className="text-xl font-bold">Something went wrong.</h1>
-            
+
             {this.props.error || (
               <p className="mt-2 text-muted-foreground">
                 A component has crashed. More details below.
@@ -44,7 +44,7 @@ export class ErrorBoundary extends React.Component<
               <AccordionItem value="item-1">
                 <AccordionTrigger>Error Details</AccordionTrigger>
                 <AccordionContent className="flex flex-col">
-                  <pre>
+                  <div className="text-sm text-muted-foreground font-mono">
                     {this.state.error?.message || "No error message available."}{" "}
                     <br />
                     Component Name:{" "}
@@ -52,7 +52,7 @@ export class ErrorBoundary extends React.Component<
                       {(this.props.children as any)?.type?.name ||
                         "Unknown Component"}
                     </strong>
-                  </pre>
+                  </div>
 
                   {this.state.error?.stack && (
                     <div className="mt-2 text-left">

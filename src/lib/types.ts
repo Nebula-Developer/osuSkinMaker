@@ -25,7 +25,7 @@ export type RealPropertyType = string | number | boolean | Point;
 /** Base settings with a default value */
 type PropertyTypeBase<T> = {
   /** Default value for the property */
-  default: T;
+  default?: T;
 };
 
 /** Mapping of property types to their specific settings */
@@ -44,6 +44,8 @@ type PropertyTypeSettingsMap = {
     max?: number;
     /** Step increment */
     step?: number;
+    /** Whether to allow custom stepping */
+    customStep?: boolean;
   } & PropertyTypeBase<number>;
 
   boolean: PropertyTypeBase<boolean>;
@@ -55,33 +57,40 @@ type PropertyTypeSettingsMap = {
     options: string[];
   } & PropertyTypeBase<string>;
 
-  image: PropertyTypeBase<string>;
+  image: PropertyTypeBase<HTMLImageElement | string>;
 
   point: {
     /** Default point as an object with x and y coordinates */
     default: Point;
-    /** Minimum and maximum values for x and y coordinates */
+    /** Minimum value for x and y coordinates */
     min?: Point;
+    /** Maximum value for x and y coordinates */
     max?: Point;
+    /** Default step increment for x and y coordinates */
+    step?: number | Point;
+    /** Whether to enable a drag-pane for the point */
+    dragPane?: boolean;
+    /** Whether to allow custom stepping for x and y coordinates */
+    customStep?: boolean;
   } & PropertyTypeBase<Point>;
 
   /** Fallback type for any additional property types */
   [key: string]: PropertyTypeBase<any> & Record<string, any>;
 };
 
+/** Type-safe settings for each property type */
 export type PropertyTypeSettings = {
   [K in keyof PropertyTypeSettingsMap]: {
     /** Display label for the property */
     label: string;
     /** Optional description for the property */
     description?: string;
-
     /** The type of the property */
     type: K;
     /** Settings specific to the property type */
     settings: PropertyTypeSettingsMap[K];
   };
-}[keyof PropertyTypeSettingsMap];
+}[PropertyType];
 
 /** A contextual object passed to a {@link Component}'s rendering method */
 export type ComponentRenderingContext = {
