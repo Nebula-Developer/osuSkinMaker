@@ -1,0 +1,4 @@
+
+button, a {
+    @apply cursor-pointer;
+}
