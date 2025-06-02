@@ -82,16 +82,26 @@ export function PanScrollArea({
       isDragging.current = false;
     };
 
+    const handleScroll = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      container.scrollLeft += e.deltaX;
+      container.scrollTop += e.deltaY;
+    };
+
     container.addEventListener("touchstart", handleTouchStart);
     container.addEventListener("touchmove", handleTouchMove);
     container.addEventListener("touchend", handleTouchEnd);
     container.addEventListener("touchcancel", handleTouchEnd);
+    container.addEventListener("wheel", handleScroll, { passive: false });
 
     return () => {
       container.removeEventListener("touchstart", handleTouchStart);
       container.removeEventListener("touchmove", handleTouchMove);
       container.removeEventListener("touchend", handleTouchEnd);
       container.removeEventListener("touchcancel", handleTouchEnd);
+      container.removeEventListener("wheel", handleScroll);
     };
   }, []);
 
@@ -102,7 +112,7 @@ export function PanScrollArea({
         "w-full h-full overflow-hidden cursor-grab active:cursor-grabbing select-none",
         className
       )}
-      style={{ touchAction: "none" }}
+      // style={{ touchAction: "none" }}
     >
       {children}
     </div>

@@ -23,6 +23,10 @@ export class ErrorBoundary extends React.Component<
     console.error("Caught by ErrorBoundary:", error, errorInfo);
   }
 
+  resetError = () => {
+    this.setState({ hasError: false, error: null });
+  };
+
   render() {
     if (this.state.hasError) {
       return (

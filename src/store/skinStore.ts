@@ -18,7 +18,7 @@ type SkinStore = {
   updateRenderMethod: (
     elementIndex: number,
     componentIndex: number,
-    method: (context: ComponentRenderingContext) => void
+    method: string
   ) => void;
   moveComponent: (elementIndex: number, from: number, to: number) => void;
   addComponent: (
@@ -76,6 +76,7 @@ export const useSkinStore = create<SkinStore>((set) => ({
         component: {
           ...components[componentIndex].component,
           render: method,
+          parsedRender: undefined
         },
       };
 
@@ -225,7 +226,7 @@ export function useComponent(elementIndex: number, componentIndex: number) {
   };
 
   const handleUpdateRenderMethod = (
-    method: (context: ComponentRenderingContext) => void
+    method: string
   ) => {
     updateRenderMethod(elementIndex, componentIndex, method);
   };

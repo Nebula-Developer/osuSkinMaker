@@ -5,6 +5,7 @@ import type {
   Size,
   Element,
   Skin,
+  ComponentRenderingContext,
 } from "./types";
 
 export const RadiusProperty: PropertyTypeSettings = {
@@ -16,7 +17,7 @@ export const RadiusProperty: PropertyTypeSettings = {
     default: 0.5,
     // min: 0,
     // max: 5,
-    customStep: true
+    customStep: true,
   },
 };
 
@@ -53,24 +54,23 @@ export const CircleClipComponent: Component = {
       settings: { default: false },
     },
   },
-  render: (context) => {
-    const { ctx, size, properties } = context;
-    const { radius, position, inverse } = properties;
-    const x = position.x * size.width;
-    const y = position.y * size.height;
-    const r = (radius * Math.min(size.width, size.height)) / 2;
-    ctx.save();
-    ctx.beginPath();
+  render: `
+const { ctx, size, properties } = context;
+const { radius, position, inverse } = properties;
+const x = position.x * size.width;
+const y = position.y * size.height;
+const r = (radius * Math.min(size.width, size.height)) / 2;
+ctx.save();
+ctx.beginPath();
 
-    if (inverse) {
-      ctx.rect(0, 0, size.width, size.height);
-      ctx.arc(x, y, r, 0, Math.PI * 2, true);
-      ctx.clip("evenodd");
-    } else {
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.clip();
-    }
-  },
+if (inverse) {
+  ctx.rect(0, 0, size.width, size.height);
+  ctx.arc(x, y, r, 0, Math.PI * 2, true);
+  ctx.clip("evenodd");
+} else {
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.clip();
+}`,
 };
 
 export const CircleComponent: Component = {
@@ -97,20 +97,19 @@ export const CircleComponent: Component = {
         "The origin point of the circle, relative to the canvas size",
     },
   },
-  render: (context) => {
-    const { ctx, size, properties } = context;
-    const { color, opacity, radius, position } = properties;
-    const x = position.x * size.width;
-    const y = position.y * size.height;
-    const r = (radius * Math.min(size.width, size.height)) / 2;
-    ctx.save();
-    ctx.fillStyle = color;
-    ctx.globalAlpha = opacity;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  },
+  render: `
+const { ctx, size, properties } = context;
+const { color, opacity, radius, position } = properties;
+const x = position.x * size.width;
+const y = position.y * size.height;
+const r = (radius * Math.min(size.width, size.height)) / 2;
+ctx.save();
+ctx.fillStyle = color;
+ctx.globalAlpha = opacity;
+ctx.beginPath();
+ctx.arc(x, y, r, 0, Math.PI * 2);
+ctx.fill();
+ctx.restore();`,
 };
 
 export const RestoreMaskComponent: Component = {
@@ -124,13 +123,12 @@ export const RestoreMaskComponent: Component = {
       settings: { default: 1, min: 1, max: 10, step: 1 },
     },
   },
-  render: (context) => {
-    const { ctx } = context;
-    const { depth } = context.properties;
-    for (let i = 0; i < depth; i++) {
-      ctx.restore();
-    }
-  },
+  render: `
+const { ctx } = context;
+const { depth } = context.properties;
+for (let i = 0; i < depth; i++) {
+  ctx.restore();
+}`,
 };
 
 export const BoxComponent: Component = {
@@ -176,26 +174,26 @@ export const BoxComponent: Component = {
       },
     },
   },
-  render: (context) => {
-    const { ctx, size, properties } = context;
-    const { color, opacity } = properties;
-    ctx.save();
-    ctx.fillStyle = color;
-    ctx.globalAlpha = opacity;
-    const boxSize = properties.size;
-    const origin = properties.origin;
-    const x = origin.x * size.width - (boxSize.x * size.width) / 2;
-    const y = origin.y * size.height - (boxSize.y * size.height) / 2;
-    ctx.fillRect(x, y, boxSize.x * size.width, boxSize.y * size.height);
-    ctx.restore();
-  },
+  render: `
+const { ctx, size, properties } = context;
+const { color, opacity } = properties;
+ctx.save();
+ctx.fillStyle = color;
+ctx.globalAlpha = opacity;
+const boxSize = properties.size;
+const origin = properties.origin;
+const x = origin.x * size.width - (boxSize.x * size.width) / 2;
+const y = origin.y * size.height - (boxSize.y * size.height) / 2;
+ctx.fillRect(x, y, boxSize.x * size.width, boxSize.y * size.height);
+ctx.restore();`,
 };
 
 /** Renders all enabled components of an element to the canvas context */
 export function drawElement(
   element: Element,
   ctx: CanvasRenderingContext2D,
-  size: Size
+  size: Size,
+  parseRender: boolean = true
 ): void {
   ctx.save();
 
@@ -206,21 +204,23 @@ export function drawElement(
   element.components.forEach((component) => {
     if (component.disabled) return;
 
-    try {
-      component.component.render({
-        ctx,
-        size: element.size,
-        properties: component.properties,
-      });
-    } catch (error) {
-      toast.error(
-        `Error rendering component. See console for details.`,
-      );
-      console.error(
-        `Error rendering component "${component.component.name}" in element "${element.displayName}":`,
-        error,
-      );
+    if (!component.component.parsedRender) {
+      if (!parseRender)
+        throw new Error(
+          `Component ${component.component.name} does not have a parsed render method.`
+        );
+
+      component.component.parsedRender = new Function(
+        "context",
+        component.component.render
+      ) as (context: ComponentRenderingContext) => void;
     }
+
+    component.component.parsedRender({
+      ctx,
+      size: element.size,
+      properties: component.properties,
+    });
   });
 
   ctx.restore();
