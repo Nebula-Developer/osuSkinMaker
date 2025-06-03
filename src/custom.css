@@ -2,3 +2,5 @@
 button, a {
     @apply cursor-pointer;
 }
+
+.monaco-editor { position: absolute !important; }

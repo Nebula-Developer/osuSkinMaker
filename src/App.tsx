@@ -5,6 +5,7 @@ import {
   BoxComponent,
   CircleClipComponent,
   CircleComponent,
+  GradientComponent,
   RestoreMaskComponent,
 } from "./lib/elements";
 import { useComponent, useElement, useSkinStore } from "./store/skinStore";
@@ -23,7 +24,7 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from "./components/ui/resizable";
-import { useState, useEffect, type JSX, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ScrollArea } from "./components/ui/scroll-area";
 import { cn } from "./lib/utils";
 import { Switch } from "./components/ui/switch";
@@ -53,21 +54,36 @@ import { Separator } from "./components/ui/separator";
 import Editor from "@monaco-editor/react";
 import { useThemeStore } from "./store/themeStore";
 import { toast } from "sonner";
+import * as monaco from "monaco-editor";
 import { Input } from "./components/ui/input";
 import { FaCogs } from "react-icons/fa";
 
-const docString = `
-/**
- * Renders the component on the canvas.
- * @param {Object} context - The rendering context.
- * @param {CanvasRenderingContext2D} context.ctx - The 2D rendering context for the canvas.
- * @param {Object} context.size - The size of the canvas.
- * @param {number} context.size.width - The width of the canvas.
- * @param {number} context.size.height - The height of the canvas.
- * @param {Object} context.properties - The properties of the component.
- * @param {any} context.properties - The properties of the component.
- * @returns {void}
- */`.trim();
+function hasEditorErrors(editor: monaco.editor.IStandaloneCodeEditor) {
+  const model = editor.getModel();
+  if (!model) return false;
+
+  const decorations = model.getAllDecorations();
+  return decorations.some((decoration) =>
+    decoration.options.className?.includes("error")
+  );
+}
+
+const contextDTS = `
+/** The rendering context passed to a component. */
+declare const context: {
+  /** The 2D rendering context of the canvas. */
+  ctx: CanvasRenderingContext2D;
+  /** The size of the canvas. */
+  size: {
+    /** The width of the canvas. */
+    width: number;
+    /** The height of the canvas. */
+    height: number;
+  };
+  /** The properties of the component, defined in the component's property object. */
+  properties: Record<string, any>;
+};
+`;
 
 function ComponentView({
   elementIndex,
@@ -90,10 +106,78 @@ function ComponentView({
   } = useComponent(elementIndex, componentIndex);
   const theme = useThemeStore((s) => s.theme);
 
-  const [code, setCode] = useState(data.component.render.toString());
+  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const testCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function parseCode(code: string) {
+    const renderFunction = new Function("context", code) as (context: {
+      ctx: CanvasRenderingContext2D;
+      size: { width: number; height: number };
+      properties: Record<string, any>;
+    }) => void;
+
+    if (typeof renderFunction !== "function")
+      throw new TypeError("Render method is not a function");
+
+    try {
+      renderFunction({
+        ctx:
+          testCanvasRef.current?.getContext("2d") ||
+          (new OffscreenCanvas(100, 100).getContext(
+            "2d"
+          ) as unknown as CanvasRenderingContext2D),
+        size: { width: 100, height: 100 },
+        properties: data.properties,
+      });
+    } catch (runtimeError) {
+      throw new SyntaxError(
+        runtimeError instanceof Error
+          ? runtimeError.message
+          : String(runtimeError)
+      );
+    }
+
+    handleUpdateRenderMethod(code);
+    toast.success("Component code updated successfully!");
+  }
+
+  function parseEditorCode() {
+    try {
+      if (!editorRef.current) {
+        toast.error("Editor not initialized.");
+        return;
+      }
+
+      if (hasEditorErrors(editorRef.current)) {
+        toast.error(
+          "Component code has syntax errors. Please fix them before updating."
+        );
+        return;
+      }
+
+      const code = editorRef.current.getValue();
+      parseCode(code);
+
+      setError(null);
+    } catch (error) {
+      console.error("Error parsing component code:", error);
+
+      if (error instanceof SyntaxError) {
+        setError(error instanceof Error ? error.message : String(error));
+
+        toast.error(`An issue occured while testing the rendering method.`);
+        return;
+      } else setError(null);
+
+      toast.error(`Unexpected error updating component code: ${String(error)}`);
+    }
+  }
 
   return (
     <div className="p-5 bg-card border rounded-lg shadow-md border-b last:border-b-0">
+      <canvas ref={testCanvasRef} className="w-0 h-0 hidden" />
+
       <div className="flex justify-between items-start">
         <div className="flex gap-2 mb-2">
           <h3 className="text-lg font-semibold">{data.component.name}</h3>
@@ -126,43 +210,48 @@ function ComponentView({
             className="flex flex-col gap-4 text-balance"
             animate={false}
           >
-            <Editor
-              height="500px"
-              defaultLanguage="javascript"
-              defaultValue={data.component.render.string.trim()}
-              theme={theme === "dark" ? "vs-dark" : "vs-light"}
-              options={{
-                fontSize: 14,
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-                formatOnPaste: true,
-                formatOnType: true,
-                inlayHints: {
-                  enabled: "on",
-                },
-                suggestOnTriggerCharacters: true,
-                tabSize: 2,
-              }}
-              onChange={(value) => {
-                setCode(value || "");
-              }}
-            />
+            {error && <div className="text-destructive text-xs">{error}</div>}
+            
+            <div className="w-full h-fit border rounded-md overflow-hidden">
+              <Editor
+                height="500px"
+                width="100%"
+
+                defaultLanguage="javascript"
+                defaultValue={data.component.render.trim()}
+                theme={theme === "dark" ? "vs-dark" : "vs-light"}
+                options={{
+                  fontSize: 14,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: true,
+                  formatOnPaste: true,
+                  formatOnType: true,
+                  automaticLayout: true,
+                  inlayHints: {
+                    enabled: "on",
+                  },
+                  suggestOnTriggerCharacters: true,
+                  tabSize: 2,
+                }}
+                onMount={(editor, monaco) => {
+                  monaco.languages.typescript.javascriptDefaults.addExtraLib(
+                    contextDTS,
+                    "file:///context.d.ts"
+                  );
+
+                  setTimeout(() => {
+                    editor.getAction("editor.action.formatDocument")?.run();
+                  }, 0);
+
+                  editorRef.current = editor;
+                }}
+              />
+            </div>
 
             <Button
               variant="outline"
               className="mt-2"
-              onClick={() => {
-                try {
-                  handleUpdateRenderMethod(code);
-
-                  toast.success("Component code updated successfully!");
-                } catch (error) {
-                  console.error("Error updating component code:", error);
-                  toast.error(
-                    "Failed to update component code. Check console for details."
-                  );
-                }
-              }}
+              onClick={parseEditorCode}
             >
               Update Code
             </Button>
@@ -213,8 +302,7 @@ function App() {
 
   const [componentAddOpen, setComponentAddOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
-
-  const canvasRef = useRef<ErrorBoundary | null>(null);
+  const errorRef = useRef<ErrorBoundary | null>(null);
 
   useEffect(() => {
     const handleResize = () => setWidth(window.innerWidth);
@@ -229,6 +317,7 @@ function App() {
     CircleComponent,
     BoxComponent,
     RestoreMaskComponent,
+    GradientComponent
   ];
 
   return (
@@ -246,7 +335,7 @@ function App() {
           className="bg-background"
         >
           <ScrollArea className="w-full h-full overflow-x-auto">
-            <div className="p-5 flex flex-col gap-5">
+            <div className="p-5 flex flex-col w-full gap-5 overflow-auto">
               <h2 className="text-2xl font-semibold">Element Editor</h2>
 
               <Select
@@ -353,7 +442,7 @@ function App() {
                       value={[scale]}
                       onValueChange={(value) => setScale(value[0])}
                       min={0.1}
-                      max={40}
+                      max={60}
                       step={0.1}
                       className="w-full min-w-24"
                     />
@@ -450,37 +539,39 @@ function App() {
               </div>
             )}
 
-            <PanScrollArea getScale={() => scale} setScale={setScale}>
-              <div
-                className={cn(
-                  "items-center justify-center min-h-full min-w-full",
-                  !previewFit ? "flex w-fit h-fit" : "block w-full h-full"
-                )}
-              >
+            <ErrorBoundary
+              ref={errorRef}
+              error={
+                <div>
+                  <p className="mt-2 text-muted-foreground">
+                    Element rendering has crashed. This may be due to an error
+                    in a component's render method.
+                  </p>
+
+                  <Button
+                    variant="destructive"
+                    className="mt-2"
+                    onClick={() => errorRef.current?.resetError()}
+                  >
+                    Refresh Component
+                  </Button>
+                </div>
+              }
+            >
+              <PanScrollArea>
                 <div
                   className={cn(
-                    "flex items-center justify-center p-12",
-                    previewFit ? "h-full" : "h-fit w-fit"
+                    "items-center justify-center min-h-full min-w-full",
+                    previewFit ? "block w-full h-full" : "flex w-fit h-fit"
                   )}
                 >
-                  <ErrorBoundary
-                    ref={canvasRef}
-                    error={
-                      <div>
-                        <p className="mt-2 text-muted-foreground">
-                          The element has encountered an error and cannot be
-                          displayed.
-                        </p>
-
-                        <Button
-                          variant="destructive"
-                          className="mt-2"
-                          onClick={() => canvasRef.current?.clearError()}
-                        >
-                          Refresh
-                        </Button>
-                      </div>
-                    }
+                  <div
+                    className={cn(
+                      "p-12",
+                      previewFit
+                        ? "h-full w-full flex items-center justify-center"
+                        : "h-fit w-fit"
+                    )}
                   >
                     <SkinCanvasView
                       element={element}
@@ -489,10 +580,10 @@ function App() {
                       grid={useGrid ? grid : 0}
                       gridAccent={useGrid ? gridAccent : 0}
                     />
-                  </ErrorBoundary>
+                  </div>
                 </div>
-              </div>
-            </PanScrollArea>
+              </PanScrollArea>
+            </ErrorBoundary>
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>

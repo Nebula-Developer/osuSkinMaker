@@ -54,26 +54,23 @@ export const CircleClipComponent: Component = {
       settings: { default: false },
     },
   },
-  render: {
-    string: `(context) => {
-  const { ctx, size, properties } = context;
-  const { radius, position, inverse } = properties;
-  const x = position.x * size.width;
-  const y = position.y * size.height;
-  const r = (radius * Math.min(size.width, size.height)) / 2;
-  ctx.save();
-  ctx.beginPath();
+  render: `
+const { ctx, size, properties } = context;
+const { radius, position, inverse } = properties;
+const x = position.x * size.width;
+const y = position.y * size.height;
+const r = (radius * Math.min(size.width, size.height)) / 2;
+ctx.save();
+ctx.beginPath();
 
-  if (inverse) {
-    ctx.rect(0, 0, size.width, size.height);
-    ctx.arc(x, y, r, 0, Math.PI * 2, true);
-    ctx.clip("evenodd");
-  } else {
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.clip();
-  }
-};`,
-  },
+if (inverse) {
+  ctx.rect(0, 0, size.width, size.height);
+  ctx.arc(x, y, r, 0, Math.PI * 2, true);
+  ctx.clip("evenodd");
+} else {
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.clip();
+}`,
 };
 
 export const CircleComponent: Component = {
@@ -100,22 +97,19 @@ export const CircleComponent: Component = {
         "The origin point of the circle, relative to the canvas size",
     },
   },
-  render: {
-    string: `(context) => {
-  const { ctx, size, properties } = context;
-  const { color, opacity, radius, position } = properties;
-  const x = position.x * size.width;
-  const y = position.y * size.height;
-  const r = (radius * Math.min(size.width, size.height)) / 2;
-  ctx.save();
-  ctx.fillStyle = color;
-  ctx.globalAlpha = opacity;
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-};`,
-  },
+  render: `
+const { ctx, size, properties } = context;
+const { color, opacity, radius, position } = properties;
+const x = position.x * size.width;
+const y = position.y * size.height;
+const r = (radius * Math.min(size.width, size.height)) / 2;
+ctx.save();
+ctx.fillStyle = color;
+ctx.globalAlpha = opacity;
+ctx.beginPath();
+ctx.arc(x, y, r, 0, Math.PI * 2);
+ctx.fill();
+ctx.restore();`,
 };
 
 export const RestoreMaskComponent: Component = {
@@ -129,15 +123,12 @@ export const RestoreMaskComponent: Component = {
       settings: { default: 1, min: 1, max: 10, step: 1 },
     },
   },
-  render: {
-    string: `(context) => {
-  const { ctx } = context;
-  const { depth } = context.properties;
-  for (let i = 0; i < depth; i++) {
-    ctx.restore();
-  }
-};`,
-  },
+  render: `
+const { ctx } = context;
+const { depth } = context.properties;
+for (let i = 0; i < depth; i++) {
+  ctx.restore();
+}`,
 };
 
 export const BoxComponent: Component = {
@@ -169,42 +160,137 @@ export const BoxComponent: Component = {
         dragPane: true,
       },
     },
+    relative: {
+      label: "Relative Size",
+      description: "What axes the size of the box is relative to",
+      type: "select",
+      settings: {
+        default: "smallest",
+        options: ["smallest", "both", "width", "height"],
+      },
+    },
     origin: {
       label: "Origin",
       description: "The origin point of the box, relative to the canvas size",
       type: "point",
       settings: {
         default: { x: 0.5, y: 0.5 },
-        min: { x: -0.5, y: -0.5 },
-        max: { x: 1.5, y: 1.5 },
+        min: { x: 0, y: 0 },
+        max: { x: 1, y: 1 },
         step: 0.01,
         dragPane: true,
         customStep: true,
       },
     },
   },
-  render: {
-    string: `(context) => {
-  const { ctx, size, properties } = context;
-  const { color, opacity } = properties;
-  ctx.save();
-  ctx.fillStyle = color;
-  ctx.globalAlpha = opacity;
-  const boxSize = properties.size;
-  const origin = properties.origin;
-  const x = origin.x * size.width - (boxSize.x * size.width) / 2;
-  const y = origin.y * size.height - (boxSize.y * size.height) / 2;
-  ctx.fillRect(x, y, boxSize.x * size.width, boxSize.y * size.height);
-  ctx.restore();
-};`,
+  render: `
+const { ctx, size, properties } = context;
+const { color, opacity, size: boxSize, relative, origin } = properties;
+const x = origin.x * size.width;
+const y = origin.y * size.height;
+let width, height;
+
+switch (relative) {
+  case "both":
+    width = boxSize.x * size.width;
+    height = boxSize.y * size.height;
+    break;
+  case "width":
+    width = boxSize.x * size.width;
+    height = size.height;
+    break;
+  case "height":
+    width = size.width;
+    height = boxSize.y * size.height;
+    break;
+  default:
+    const minSize = Math.min(size.width, size.height);
+    width = boxSize.x * minSize;
+    height = boxSize.y * minSize;
+    break;
+}
+
+ctx.save();
+ctx.fillStyle = color;
+ctx.globalAlpha = opacity;
+ctx.beginPath();
+ctx.rect(
+  x - width / 2,
+  y - height / 2,
+  width,
+  height
+);
+ctx.fill();
+ctx.restore();
+`,
+};
+
+export const GradientComponent: Component = {
+  name: "Gradient",
+  description: "A gradient from one color to another",
+  properties: {
+    startColor: {
+      label: "Start Color",
+      description: "The color at the start of the gradient",
+      type: "color",
+      settings: { default: "#FF0000" },
+    },
+    startPosition: {
+      label: "Start Position",
+      description: "The position of the start color, relative to the canvas",
+      type: "point",
+      settings: {
+        default: { x: 0, y: 0 },
+        min: { x: 0, y: 0 },
+        max: { x: 1, y: 1 },
+        step: 0.01,
+        dragPane: true,
+        customStep: true,
+      },
+    },
+    endColor: {
+      label: "End Color",
+      description: "The color at the end of the gradient",
+      type: "color",
+      settings: { default: "#0000FF" },
+    },
+    endPosition: {
+      label: "End Position",
+      description: "The position of the end color, relative to the canvas",
+      type: "point",
+      settings: {
+        default: { x: 1, y: 1 },
+        min: { x: 0, y: 0 },
+        max: { x: 1, y: 1 },
+        step: 0.01,
+        dragPane: true,
+        customStep: true,
+      },
+    },
   },
+  render: `
+const { ctx, size, properties } = context;
+const { startColor, endColor, direction } = properties;
+const startX = properties.startPosition.x * size.width;
+const startY = properties.startPosition.y * size.height;
+const endX = properties.endPosition.x * size.width;
+const endY = properties.endPosition.y * size.height;
+ctx.save();
+const gradient = ctx.createLinearGradient(startX, startY, endX, endY);
+gradient.addColorStop(0, startColor);
+gradient.addColorStop(1, endColor);
+ctx.fillStyle = gradient;
+ctx.fillRect(0, 0, size.width, size.height);
+ctx.restore();
+`,
 };
 
 /** Renders all enabled components of an element to the canvas context */
 export function drawElement(
   element: Element,
   ctx: CanvasRenderingContext2D,
-  size: Size
+  size: Size,
+  parseRender: boolean = true
 ): void {
   ctx.save();
 
@@ -215,19 +301,19 @@ export function drawElement(
   element.components.forEach((component) => {
     if (component.disabled) return;
 
-    if (typeof component.component.render !== "object") {
-      throw new Error(
-        `Component "${component.component.name}" does not have a valid render method.`
-      );
-    }
+    if (!component.component.parsedRender) {
+      if (!parseRender)
+        throw new Error(
+          `Component ${component.component.name} does not have a parsed render method.`
+        );
 
-    if (!component.component.render.method) {
-      component.component.render.method = eval(
-        component.component.render.string
+      component.component.parsedRender = new Function(
+        "context",
+        component.component.render
       ) as (context: ComponentRenderingContext) => void;
     }
 
-    component.component.render.method({
+    component.component.parsedRender({
       ctx,
       size: element.size,
       properties: component.properties,

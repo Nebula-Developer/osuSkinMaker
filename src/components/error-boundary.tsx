@@ -23,7 +23,7 @@ export class ErrorBoundary extends React.Component<
     console.error("Caught by ErrorBoundary:", error, errorInfo);
   }
 
-  clearError = () => {
+  resetError = () => {
     this.setState({ hasError: false, error: null });
   };
 
