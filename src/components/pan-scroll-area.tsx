@@ -1,18 +1,29 @@
 import { useRef, useEffect } from "react";
 import { cn } from "../lib/utils";
 
-
 export function PanScrollArea({
-  children, className,
+  children,
+  className,
+  getScale = () => 1,
+  setScale = () => {},
 }: {
   children: React.ReactNode;
   className?: string;
+  getScale?: () => number;
+  setScale?: (scale: number) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const isDragging = useRef(false);
   const start = useRef({ x: 0, y: 0 });
   const scrollStart = useRef({ left: 0, top: 0 });
+
+  const getScaleRef = useRef(getScale);
+
+  // 🔄 Keep getScaleRef up-to-date
+  useEffect(() => {
+    getScaleRef.current = getScale;
+  }, [getScale]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -41,16 +52,42 @@ export function PanScrollArea({
       isDragging.current = false;
     };
 
-    container.addEventListener("mousedown", handleMouseDown);
+    const handleScroll = (e: WheelEvent) => {
+      if (isDragging.current) {
+        e.preventDefault();
+        return;
+      }
+
+      if (e.ctrlKey || e.metaKey) {
+        const container = containerRef.current;
+        if (!container) return;
+
+        e.preventDefault();
+
+        const oldScale = getScaleRef.current();
+        let newScale = oldScale + e.deltaY * -0.025;
+        newScale = Math.max(0.1, Math.min(newScale, 1000));
+        setScale(newScale);
+      } else {
+        container.scrollLeft += e.deltaX;
+        container.scrollTop += e.deltaY;
+      }
+    };
+
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
 
+    container.addEventListener("mousedown", handleMouseDown);
+    container.addEventListener("wheel", handleScroll, { passive: false });
+
     return () => {
-      container.removeEventListener("mousedown", handleMouseDown);
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
+
+      container.removeEventListener("mousedown", handleMouseDown);
+      container.removeEventListener("wheel", handleScroll);
     };
-  }, []);
+  }, [setScale]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -100,7 +137,8 @@ export function PanScrollArea({
       ref={containerRef}
       className={cn(
         "w-full h-full overflow-hidden cursor-grab active:cursor-grabbing select-none",
-        className
+        className,
+        // isDragging ? "" : "scroll-smooth"
       )}
       style={{ touchAction: "none" }}
     >

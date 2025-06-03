@@ -8,8 +8,8 @@ export function SkinCanvasView({
   element,
   scale,
   fit = true,
-  grid = 10,
-  gridAccent = 3
+  grid,
+  gridAccent
 }: {
   element: Element;
   scale: number;
@@ -79,14 +79,14 @@ export function SkinCanvasView({
 
   useEffect(() => {
     render();
-  }, [canvasRef, element, scale, theme]);
+  }, [canvasRef, element, scale, theme, grid, gridAccent]);
 
   var widthOverHeight = element.size.width > element.size.height;
 
   return (
     <div
       className={cn(
-        "border rounded-md shadow-md bg-card overflow-hidden",
+        "border rounded-md shadow-md bg-card overflow-hidden transition-[width] duration-100 ease-out",
         widthOverHeight ? "w-full" : fit ? "h-full" : "h-full w-full"
       )}
       style={{

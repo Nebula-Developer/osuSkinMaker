@@ -23,7 +23,7 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from "./components/ui/resizable";
-import { useState, useEffect, type JSX } from "react";
+import { useState, useEffect, type JSX, useRef } from "react";
 import { ScrollArea } from "./components/ui/scroll-area";
 import { cn } from "./lib/utils";
 import { Switch } from "./components/ui/switch";
@@ -53,6 +53,8 @@ import { Separator } from "./components/ui/separator";
 import Editor from "@monaco-editor/react";
 import { useThemeStore } from "./store/themeStore";
 import { toast } from "sonner";
+import { Input } from "./components/ui/input";
+import { FaCogs } from "react-icons/fa";
 
 const docString = `
 /**
@@ -100,9 +102,7 @@ function ComponentView({
 
         <Switch
           checked={!data.disabled}
-          onCheckedChange={(checked) =>
-            handleUpdate({ disabled: !checked })
-          }
+          onCheckedChange={(checked) => handleUpdate({ disabled: !checked })}
         />
       </div>
 
@@ -129,7 +129,7 @@ function ComponentView({
             <Editor
               height="500px"
               defaultLanguage="javascript"
-              defaultValue={docString + '\n' + data.component.render.toString().trim()}
+              defaultValue={data.component.render.string.trim()}
               theme={theme === "dark" ? "vs-dark" : "vs-light"}
               options={{
                 fontSize: 14,
@@ -141,13 +141,10 @@ function ComponentView({
                   enabled: "on",
                 },
                 suggestOnTriggerCharacters: true,
-                tabSize: 2
+                tabSize: 2,
               }}
               onChange={(value) => {
                 setCode(value || "");
-              }}
-              onMount={(editor) => {
-                editor.getAction("editor.action.formatDocument")!.run();
               }}
             />
 
@@ -156,12 +153,7 @@ function ComponentView({
               className="mt-2"
               onClick={() => {
                 try {
-                  // (context) => void
-                  const func = eval(
-                    `(${code})`
-                  ) as (context: any) => void;
-
-                  handleUpdateRenderMethod(func);
+                  handleUpdateRenderMethod(code);
 
                   toast.success("Component code updated successfully!");
                 } catch (error) {
@@ -178,7 +170,7 @@ function ComponentView({
         </AccordionItem>
       </Accordion>
 
-      <div className="mt-2">
+      <div className="mt-2 flex flex-wrap gap-2">
         <Button
           variant="outline"
           onClick={handleMoveUp}
@@ -188,7 +180,6 @@ function ComponentView({
         </Button>
         <Button
           variant="outline"
-          className="ml-2"
           onClick={handleMoveDown}
           disabled={componentIndex === element.components.length - 1}
         >
@@ -196,7 +187,6 @@ function ComponentView({
         </Button>
         <Button
           variant="destructive"
-          className="ml-2"
           onClick={onRemove || (() => {})}
           disabled={!onRemove}
         >
@@ -214,11 +204,17 @@ function App() {
   const skin = useSkinStore((s) => s.skin);
 
   const [width, setWidth] = useState(window.innerWidth);
-
   const [previewFit, setPreviewFit] = useState(false);
   const [scale, setScale] = useState(1);
 
+  const [grid, setGrid] = useState(10);
+  const [gridAccent, setGridAccent] = useState(5);
+  const [useGrid, setUseGrid] = useState(true);
+
   const [componentAddOpen, setComponentAddOpen] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+
+  const canvasRef = useRef<ErrorBoundary | null>(null);
 
   useEffect(() => {
     const handleResize = () => setWidth(window.innerWidth);
@@ -339,29 +335,110 @@ function App() {
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={70} className="flex flex-col">
-          <div className="w-full h-18 bg-sidebar shadow-md flex justify-between px-12 z-10">
-            <div className="flex items-center gap-x-8 w-full flex-wrap">
-              <Label className="flex items-center">
-                <Switch
-                  checked={previewFit}
-                  onCheckedChange={(checked) => setPreviewFit(checked)}
-                />
-                Fit Preview
-              </Label>
-
-              {!previewFit && (
-                <Label className="flex flex-1 items-center">
-                  <span className="mr-2">Scale:</span>
-                  <Slider
-                    value={[scale]}
-                    onValueChange={(value) => setScale(value[0])}
-                    min={0.1}
-                    max={40}
-                    step={0.1}
-                    className="w-full min-w-24"
+          <div className="w-full min-h-18 bg-sidebar shadow-md flex justify-between px-12 py-5 z-10 relative">
+            <div className="flex items-center justify-between gap-8 w-full flex-wrap">
+              <div className="flex gap-8 flex-1 items-center">
+                <Label className="flex items-center whitespace-nowrap">
+                  <Switch
+                    checked={previewFit}
+                    onCheckedChange={(checked) => setPreviewFit(checked)}
                   />
+                  Fit Preview
                 </Label>
-              )}
+
+                {!previewFit && (
+                  <Label className="flex flex-1 items-center min-w-96">
+                    <span className="mr-2">Scale:</span>
+                    <Slider
+                      value={[scale]}
+                      onValueChange={(value) => setScale(value[0])}
+                      min={0.1}
+                      max={40}
+                      step={0.1}
+                      className="w-full min-w-24"
+                    />
+                  </Label>
+                )}
+              </div>
+
+              <Button
+                variant="outline"
+                className="flex items-center gap-2"
+                onClick={() => setOptionsOpen(!optionsOpen)}
+              >
+                <FaCogs className="text-lg" />
+              </Button>
+
+              <div
+                className={cn(
+                  "w-full flex-col gap-4",
+                  optionsOpen ? "flex" : "hidden"
+                )}
+              >
+                <Separator orientation="horizontal" className="my-2" />
+
+                <div className="flex items-center gap-2">
+                  <Switch checked={useGrid} onCheckedChange={setUseGrid} />
+                  <span>Use Grid</span>
+                </div>
+
+                {useGrid && (
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-2">
+                      <label className="flex items-center justify-between gap-4">
+                        <span className="whitespace-nowrap">Grid Size:</span>
+                        <Input
+                          type="number"
+                          value={grid}
+                          onChange={(e) => setGrid(Number(e.target.value))}
+                          min={1}
+                          max={20}
+                          step={1}
+                          className="w-24"
+                        />
+                      </label>
+                      <Slider
+                        value={[grid]}
+                        onValueChange={(value) => setGrid(value[0])}
+                        min={2}
+                        max={20}
+                        step={2}
+                        className="w-full"
+                      />
+                    </div>
+
+                    {grid % 2 === 0 && (
+                      <div className="flex flex-col gap-2">
+                        <label className="flex items-center justify-between gap-4">
+                          <span className="whitespace-nowrap">
+                            Grid Accent:
+                          </span>
+                          <Input
+                            type="number"
+                            value={gridAccent}
+                            onChange={(e) =>
+                              setGridAccent(Number(e.target.value))
+                            }
+                            min={1}
+                            max={grid / 2}
+                            step={1}
+                            className="w-24"
+                          />
+                        </label>
+                        <Slider
+                          value={[gridAccent]}
+                          onValueChange={(value) => setGridAccent(value[0])}
+                          min={1}
+                          max={grid / 2}
+                          step={1}
+                          className="w-full"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+                <Separator orientation="horizontal" className="my-2" />
+              </div>
             </div>
           </div>
 
@@ -373,7 +450,7 @@ function App() {
               </div>
             )}
 
-            <PanScrollArea>
+            <PanScrollArea getScale={() => scale} setScale={setScale}>
               <div
                 className={cn(
                   "items-center justify-center min-h-full min-w-full",
@@ -386,11 +463,33 @@ function App() {
                     previewFit ? "h-full" : "h-fit w-fit"
                   )}
                 >
-                  <SkinCanvasView
-                    element={element}
-                    scale={previewFit ? 10 : scale}
-                    fit={previewFit}
-                  />
+                  <ErrorBoundary
+                    ref={canvasRef}
+                    error={
+                      <div>
+                        <p className="mt-2 text-muted-foreground">
+                          The element has encountered an error and cannot be
+                          displayed.
+                        </p>
+
+                        <Button
+                          variant="destructive"
+                          className="mt-2"
+                          onClick={() => canvasRef.current?.clearError()}
+                        >
+                          Refresh
+                        </Button>
+                      </div>
+                    }
+                  >
+                    <SkinCanvasView
+                      element={element}
+                      scale={previewFit ? 10 : scale}
+                      fit={previewFit}
+                      grid={useGrid ? grid : 0}
+                      gridAccent={useGrid ? gridAccent : 0}
+                    />
+                  </ErrorBoundary>
                 </div>
               </div>
             </PanScrollArea>

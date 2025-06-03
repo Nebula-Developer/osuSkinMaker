@@ -111,7 +111,12 @@ export type Component = {
   /** The properties of the component, including their types and settings */
   properties: Record<string, PropertyTypeSettings>;
   /** The method that renders the component. **The context is not restored after rendering, so you must do it manually if needed.** */
-  render: (context: ComponentRenderingContext) => void;
+  render: {
+    /** The string representation of the method, which can be used to parse the function */
+    string: string;
+    /** The actual JS method - this value is almost always parsed from the string representation */
+    method?: (context: ComponentRenderingContext) => void;
+  }
 };
 
 /** Scale variant for an element (e.g., @2x) */

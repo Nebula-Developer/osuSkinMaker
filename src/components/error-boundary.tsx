@@ -23,11 +23,15 @@ export class ErrorBoundary extends React.Component<
     console.error("Caught by ErrorBoundary:", error, errorInfo);
   }
 
+  clearError = () => {
+    this.setState({ hasError: false, error: null });
+  };
+
   render() {
     if (this.state.hasError) {
       return (
         <div className="flex items-center justify-center p-8 bg-accent rounded-md w-full">
-          <div className="text-center container flex flex-col items-center justify-center">
+          <div className="text-center flex flex-col items-center justify-center">
             <h1 className="text-xl font-bold">Something went wrong.</h1>
 
             {this.props.error || (
@@ -39,11 +43,11 @@ export class ErrorBoundary extends React.Component<
             <Accordion
               type="single"
               collapsible
-              className="mt-12 container bg-card rounded-md px-6 py-2 shadow-md"
+              className="mt-12 bg-card rounded-md px-6 py-2 shadow-md w-full"
             >
               <AccordionItem value="item-1">
                 <AccordionTrigger>Error Details</AccordionTrigger>
-                <AccordionContent className="flex flex-col">
+                <AccordionContent className="flex flex-col max-w-full">
                   <div className="text-sm text-muted-foreground font-mono">
                     {this.state.error?.message || "No error message available."}{" "}
                     <br />
@@ -53,18 +57,18 @@ export class ErrorBoundary extends React.Component<
                         "Unknown Component"}
                     </strong>
                   </div>
-
-                  {this.state.error?.stack && (
-                    <div className="mt-2 text-left">
-                      <strong>Stack Trace:</strong>
-
-                      <pre className="whitespace-pre-wrap mt-2">
-                        {this.state.error.stack}
-                      </pre>
-                    </div>
-                  )}
                 </AccordionContent>
               </AccordionItem>
+              {this.state.error?.stack && (
+                <AccordionItem value="item-2">
+                  <AccordionTrigger>Stack Trace</AccordionTrigger>
+                  <AccordionContent>
+                    <pre className="text-left whitespace-pre-line break-all">
+                      {this.state.error.stack}
+                    </pre>
+                  </AccordionContent>
+                </AccordionItem>
+              )}
             </Accordion>
           </div>
         </div>
