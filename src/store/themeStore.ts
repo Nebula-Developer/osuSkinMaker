@@ -1,22 +1,11 @@
-import type { Theme } from '@/lib/types'
-import { create } from 'zustand'
-import { persist, type PersistOptions } from 'zustand/middleware'
+import type { Theme } from '@/lib/types';
+import { proxy, subscribe } from 'valtio';
 
-type ThemeStore = {
-  theme: Theme
-  setTheme: (theme: Theme) => void
-}
+const storedState = localStorage.getItem('skin-state');
+export const themeState = proxy<{ theme: Theme }>(
+  storedState ? JSON.parse(storedState) : { theme: 'dark' }
+);
 
-const persistConfig: PersistOptions<ThemeStore> = {
-  name: 'theme',
-}
-
-export const useThemeStore = create<ThemeStore, [['zustand/persist', ThemeStore]]>(
-  persist(
-    (set) => ({
-      theme: 'dark',
-      setTheme: (theme: Theme) => set({ theme }),
-    }),
-    persistConfig
-  )
-)
+subscribe(themeState, () => {
+  localStorage.setItem('theme', JSON.stringify(themeState));
+});

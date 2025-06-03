@@ -6,6 +6,7 @@ import type {
   Element,
   Skin,
   ComponentRenderingContext,
+  ElementComponentArray,
 } from "./types";
 
 export const RadiusProperty: PropertyTypeSettings = {
@@ -286,6 +287,42 @@ ctx.restore();
 };
 
 /** Renders all enabled components of an element to the canvas context */
+
+function drawComponentArray(
+  components: ElementComponentArray,
+  context: Omit<ComponentRenderingContext, "properties">,
+  parseRender: boolean = true
+) {
+  components.forEach((component) => {
+    if (component.disabled) return;
+    
+    if (component.type === "group") {
+      drawComponentArray(component.components, context, parseRender);
+      return;
+    }
+
+    if (!component.component.parsedRender) {
+      if (!parseRender)
+        throw new Error(
+          `Component ${component.component.name} does not have a parsed render method.`
+        );
+    
+      component.component.parsedRender = new Function(
+        "context",
+        component.component.render
+      ) as (context: ComponentRenderingContext) => void;
+    }
+    
+    component.component.parsedRender({
+      ...context,
+      properties: {
+        ...getDefaultProperties(component.component),
+        ...component.properties,
+      },
+  });
+  });
+}
+
 export function drawElement(
   element: Element,
   ctx: CanvasRenderingContext2D,
@@ -298,27 +335,10 @@ export function drawElement(
   const heightScale = size.height / element.size.height;
   ctx.scale(widthScale, heightScale);
 
-  element.components.forEach((component) => {
-    if (component.disabled) return;
-
-    if (!component.component.parsedRender) {
-      if (!parseRender)
-        throw new Error(
-          `Component ${component.component.name} does not have a parsed render method.`
-        );
-
-      component.component.parsedRender = new Function(
-        "context",
-        component.component.render
-      ) as (context: ComponentRenderingContext) => void;
-    }
-
-    component.component.parsedRender({
-      ctx,
-      size: element.size,
-      properties: component.properties,
-    });
-  });
+  drawComponentArray(element.components, {
+    ctx,
+    size: element.size,
+  }, parseRender);
 
   ctx.restore();
 }

@@ -8,7 +8,7 @@ import {
   GradientComponent,
   RestoreMaskComponent,
 } from "./lib/elements";
-import { useComponent, useElement, useSkinStore } from "./store/skinStore";
+import { skinState } from "./store/skinStore";
 import {
   Accordion,
   AccordionItem,
@@ -52,9 +52,10 @@ import {
 } from "./components/ui/command";
 import { Separator } from "./components/ui/separator";
 import Editor from "@monaco-editor/react";
-import { useThemeStore } from "./store/themeStore";
 import { toast } from "sonner";
 import * as monaco from "monaco-editor";
+import { useSnapshot } from "valtio";
+import { themeState } from "./store/themeStore";
 
 function hasEditorErrors(editor: monaco.editor.IStandaloneCodeEditor) {
   const model = editor.getModel();
@@ -83,26 +84,56 @@ declare const context: {
 };
 `;
 
+
+function ComponentGroup({
+  elementIndex,
+  components,
+  onRemove,
+}: {
+  elementIndex: number;
+  components: ElementComponentData[];
+  onRemove?: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      {components.map((component, index) => (
+        <ComponentView
+          key={component.id || index}
+          elementIndex={elementIndex}
+          componentIndex={index}
+          data={component}
+          onRemove={() => onRemove?.()}
+        />
+      ))}
+    </div>
+  );
+}
+
 function ComponentView({
   elementIndex,
   componentIndex,
   data,
-  element,
   onRemove,
 }: {
   elementIndex: number;
   componentIndex: number;
   data: ElementComponentData;
-  element: Element;
   onRemove?: () => void;
 }) {
-  const {
-    handleUpdate,
-    handleMoveUp,
-    handleMoveDown,
-    handleUpdateRenderMethod,
-  } = useComponent(elementIndex, componentIndex);
-  const theme = useThemeStore((s) => s.theme);
+  // const {
+  //   handleUpdate,
+  //   handleMoveUp,
+  //   handleMoveDown,
+  //   handleUpdateRenderMethod,
+  // } = useComponent(elementIndex, componentIndex);
+  const theme = useSnapshot(themeState).theme;
+  const snap = useSnapshot(skinState);
+
+  const elementWrite = skinState.skin.elements[elementIndex];
+  const componentWrite = elementWrite.components[componentIndex] as ElementComponentData;
+
+  const elementSnap = snap.skin.elements[elementIndex];
+  const componentSnap = elementSnap.components[componentIndex] as ElementComponentData;
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const testCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -136,7 +167,7 @@ function ComponentView({
       );
     }
 
-    handleUpdateRenderMethod(code);
+    componentWrite.component.render = code.trim();
     toast.success("Component code updated successfully!");
   }
 
@@ -179,12 +210,12 @@ function ComponentView({
       <div className="flex justify-between items-start">
         <div className="flex gap-2 mb-2">
           <h3 className="text-lg font-semibold">{data.component.name}</h3>
-          {data.customName && <Badge>{data.customName}</Badge>}
+          {data.id && <Badge>{data.id}</Badge>}
         </div>
 
         <Switch
           checked={!data.disabled}
-          onCheckedChange={(checked) => handleUpdate({ disabled: !checked })}
+          onCheckedChange={(checked) => componentWrite.disabled = !checked}
         />
       </div>
 
@@ -197,7 +228,7 @@ function ComponentView({
           >
             <ComponentEditor
               component={data}
-              updateValues={(props) => handleUpdate({ props })}
+              updateValues={(props) => componentWrite.properties = props}
             />
           </AccordionContent>
         </AccordionItem>
@@ -260,15 +291,29 @@ function ComponentView({
       <div className="mt-2 flex flex-wrap gap-2">
         <Button
           variant="outline"
-          onClick={handleMoveUp}
+          onClick={() => {
+            if (componentIndex === 0) return;
+
+            const components = skinState.skin.elements[elementIndex].components;
+            const [component] = components.splice(componentIndex, 1);
+            components.splice(componentIndex - 1, 0, component);
+            skinState.skin.elements[elementIndex].components = components;          
+          }}
           disabled={componentIndex === 0}
         >
           Move Up
         </Button>
         <Button
           variant="outline"
-          onClick={handleMoveDown}
-          disabled={componentIndex === element.components.length - 1}
+          onClick={() => {
+            if (componentIndex === elementWrite.components.length - 1) return;
+
+            const components = skinState.skin.elements[elementIndex].components;
+            const [component] = components.splice(componentIndex, 1);
+            components.splice(componentIndex + 1, 0, component);
+            skinState.skin.elements[elementIndex].components = components;
+          }}
+          disabled={componentIndex === elementSnap.components.length - 1}
         >
           Move Down
         </Button>
@@ -286,9 +331,11 @@ function ComponentView({
 
 function App() {
   const [elementId, setElementId] = useState(0);
-  const { element, components, addComponent, removeComponent } =
-    useElement(elementId);
-  const skin = useSkinStore((s) => s.skin);
+  // const { element, components, addComponent, removeComponent } =
+  //   useElement(elementId);
+  const skinSnap = useSnapshot(skinState).skin;
+  const elementSnap = skinSnap.elements[elementId];
+  const elementWrite = skinState.skin.elements[elementId];
 
   const [width, setWidth] = useState(window.innerWidth);
 
@@ -341,10 +388,11 @@ function App() {
                 </SelectTrigger>
 
                 <SelectContent>
-                  {skin.elements.map((el, index) => (
-                    <SelectItem key={index} value={index.toString()}>
-                      {el.displayName}
-                    </SelectItem>
+                  {skinSnap.elements.map((el, index) => (
+                    // <SelectItem key={index} value={index.toString()}>
+                    //   {el.displayName}
+                    // </SelectItem>
+                    <></>
                   ))}
                 </SelectContent>
               </Select>

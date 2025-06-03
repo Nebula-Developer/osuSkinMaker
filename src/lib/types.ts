@@ -146,20 +146,35 @@ export type Element = {
   components: ElementComponentArray;
 };
 
+
+export type ElementComponentArrayBase = {
+  /** Optional position of the component within the element */
+  disabled?: boolean;
+  /** Custom name for identification (unique) */
+  id: string;
+}
+
 /** Represents a component paired with its properties */
-export type ElementComponentData = {
+export type ElementComponentData = ElementComponentArrayBase & {
+  /** Discriminator for identifying a component */
+  type: "component";
   /** The component itself */
   component: Component;
   /** The property values for the component */
   properties: Record<string, RealPropertyType>;
-  /** Optional position of the component within the element */
-  disabled?: boolean;
-  /** Optional custom name for identification */
-  customName?: string;
 }
 
+export type ElementComponentGroup = ElementComponentArrayBase & {
+  /** Discriminator for identifying a group of components */
+  type: "group";
+  /** Group name for organizational or UI purposes */
+  name: string;
+  /** List of components in the group */
+  components: ElementComponentArray;
+};
+
 /** Array of components that make up an element */
-export type ElementComponentArray = ElementComponentData[];
+export type ElementComponentArray = (ElementComponentData | ElementComponentGroup)[];
 
 /** The base type defining features of an osu! skin */
 export type Skin = {

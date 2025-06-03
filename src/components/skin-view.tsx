@@ -1,8 +1,9 @@
 import { drawElement } from "@/lib/elements";
 import type { Element } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { useThemeStore } from "@/store/themeStore";
+import { themeState } from "@/store/themeStore";
 import { useEffect, useRef } from "react";
+import { useSnapshot } from "valtio";
 
 export function SkinCanvasView({
   element,
@@ -18,7 +19,7 @@ export function SkinCanvasView({
   gridAccent?: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const theme = useThemeStore((c) => c.theme);
+  const theme = useSnapshot(themeState).theme;
 
   function render() {
     const canvas = canvasRef.current;

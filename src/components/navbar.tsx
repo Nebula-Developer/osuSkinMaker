@@ -9,8 +9,8 @@ import {
   SelectValue,
 } from "./ui/select";
 import { HiMoon, HiSun } from "react-icons/hi";
-import { useThemeStore } from "@/store/themeStore";
-import { useSkinStore } from "@/store/skinStore";
+import { themeState } from "@/store/themeStore";
+import { skinState } from "@/store/skinStore";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,13 +25,13 @@ import {
 import { Textarea } from "./ui/textarea";
 import { Input } from "./ui/input";
 import { toast } from "sonner";
+import type { Theme } from "@/lib/types";
 
 export function Navbar() {
-  const themeStore = useThemeStore();
   const [isOpen, setIsOpen] = useState(false);
   const [json, setJson] = useState("");
 
-  const skin = useSkinStore((state) => state.skin);
+  // const skin = useSkinStore((state) => state.skin);
 
   return (
     <header className="border-b px-4 py-3 flex items-center justify-between bg-background">
@@ -41,8 +41,8 @@ export function Navbar() {
 
       <div className="flex flex-wrap justify-end items-center gap-2">
         <Select
-          value={themeStore.theme}
-          onValueChange={themeStore.setTheme}
+          value={themeState.theme}
+          onValueChange={(v) => themeState.theme = v as Theme}
           open={isOpen}
           onOpenChange={setIsOpen}
         >
@@ -74,7 +74,7 @@ export function Navbar() {
           size="sm"
           onClick={() => {
             console.log("Exporting skin:");
-            let data = stringifyWithFunctions(skin);
+            let data = stringifyWithFunctions(skinState.skin);
             console.log(data);
             const blob = new Blob([data], { type: "application/json" });
 
@@ -145,9 +145,9 @@ export function Navbar() {
                       toast.error("Invalid skin format. Your skin might be broken or outdated.");
                       return;
                     }
-                      
+                    
+                    skinState.skin = parsed;
 
-                    useSkinStore.setState({ skin: parsed });
                     setJson("");
                     setIsOpen(false);
                     toast.success("Skin imported successfully!");
