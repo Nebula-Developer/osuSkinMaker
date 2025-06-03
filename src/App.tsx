@@ -5,6 +5,7 @@ import {
   BoxComponent,
   CircleClipComponent,
   CircleComponent,
+  GradientComponent,
   RestoreMaskComponent,
 } from "./lib/elements";
 import { useComponent, useElement, useSkinStore } from "./store/skinStore";
@@ -66,15 +67,18 @@ function hasEditorErrors(editor: monaco.editor.IStandaloneCodeEditor) {
 }
 
 const contextDTS = `
-/**
- * The rendering context passed to a component.
- */
+/** The rendering context passed to a component. */
 declare const context: {
+  /** The 2D rendering context of the canvas. */
   ctx: CanvasRenderingContext2D;
+  /** The size of the canvas. */
   size: {
+    /** The width of the canvas. */
     width: number;
+    /** The height of the canvas. */
     height: number;
   };
+  /** The properties of the component, defined in the component's property object. */
   properties: Record<string, any>;
 };
 `;
@@ -205,36 +209,42 @@ function ComponentView({
             animate={false}
           >
             {error && <div className="text-destructive text-xs">{error}</div>}
-            <Editor
-              height="500px"
-              defaultLanguage="javascript"
-              defaultValue={data.component.render.trim()}
-              theme={theme === "dark" ? "vs-dark" : "vs-light"}
-              options={{
-                fontSize: 14,
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-                formatOnPaste: true,
-                formatOnType: true,
-                inlayHints: {
-                  enabled: "on",
-                },
-                suggestOnTriggerCharacters: true,
-                tabSize: 2,
-              }}
-              onMount={(editor, monaco) => {
-                monaco.languages.typescript.javascriptDefaults.addExtraLib(
-                  contextDTS,
-                  "file:///context.d.ts"
-                );
+            
+            <div className="w-full h-fit border rounded-md overflow-hidden">
+              <Editor
+                height="500px"
+                width="100%"
 
-                setTimeout(() => {
-                  editor.getAction("editor.action.formatDocument")?.run();
-                }, 0);
+                defaultLanguage="javascript"
+                defaultValue={data.component.render.trim()}
+                theme={theme === "dark" ? "vs-dark" : "vs-light"}
+                options={{
+                  fontSize: 14,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: true,
+                  formatOnPaste: true,
+                  formatOnType: true,
+                  automaticLayout: true,
+                  inlayHints: {
+                    enabled: "on",
+                  },
+                  suggestOnTriggerCharacters: true,
+                  tabSize: 2,
+                }}
+                onMount={(editor, monaco) => {
+                  monaco.languages.typescript.javascriptDefaults.addExtraLib(
+                    contextDTS,
+                    "file:///context.d.ts"
+                  );
 
-                editorRef.current = editor;
-              }}
-            />
+                  setTimeout(() => {
+                    editor.getAction("editor.action.formatDocument")?.run();
+                  }, 0);
+
+                  editorRef.current = editor;
+                }}
+              />
+            </div>
 
             <Button
               variant="outline"
@@ -301,6 +311,7 @@ function App() {
     CircleComponent,
     BoxComponent,
     RestoreMaskComponent,
+    GradientComponent
   ];
 
   return (
@@ -318,7 +329,7 @@ function App() {
           className="bg-background"
         >
           <ScrollArea className="w-full h-full overflow-x-auto">
-            <div className="p-5 flex flex-col gap-5">
+            <div className="p-5 flex flex-col w-full gap-5 overflow-auto">
               <h2 className="text-2xl font-semibold">Element Editor</h2>
 
               <Select

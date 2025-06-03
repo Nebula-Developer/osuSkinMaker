@@ -160,14 +160,23 @@ export const BoxComponent: Component = {
         dragPane: true,
       },
     },
+    relative: {
+      label: "Relative Size",
+      description: "What axes the size of the box is relative to",
+      type: "select",
+      settings: {
+        default: "smallest",
+        options: ["smallest", "both", "width", "height"],
+      },
+    },
     origin: {
       label: "Origin",
       description: "The origin point of the box, relative to the canvas size",
       type: "point",
       settings: {
         default: { x: 0.5, y: 0.5 },
-        min: { x: -0.5, y: -0.5 },
-        max: { x: 1.5, y: 1.5 },
+        min: { x: 0, y: 0 },
+        max: { x: 1, y: 1 },
         step: 0.01,
         dragPane: true,
         customStep: true,
@@ -176,16 +185,104 @@ export const BoxComponent: Component = {
   },
   render: `
 const { ctx, size, properties } = context;
-const { color, opacity } = properties;
+const { color, opacity, size: boxSize, relative, origin } = properties;
+const x = origin.x * size.width;
+const y = origin.y * size.height;
+let width, height;
+
+switch (relative) {
+  case "both":
+    width = boxSize.x * size.width;
+    height = boxSize.y * size.height;
+    break;
+  case "width":
+    width = boxSize.x * size.width;
+    height = size.height;
+    break;
+  case "height":
+    width = size.width;
+    height = boxSize.y * size.height;
+    break;
+  default:
+    const minSize = Math.min(size.width, size.height);
+    width = boxSize.x * minSize;
+    height = boxSize.y * minSize;
+    break;
+}
+
 ctx.save();
 ctx.fillStyle = color;
 ctx.globalAlpha = opacity;
-const boxSize = properties.size;
-const origin = properties.origin;
-const x = origin.x * size.width - (boxSize.x * size.width) / 2;
-const y = origin.y * size.height - (boxSize.y * size.height) / 2;
-ctx.fillRect(x, y, boxSize.x * size.width, boxSize.y * size.height);
-ctx.restore();`,
+ctx.beginPath();
+ctx.rect(
+  x - width / 2,
+  y - height / 2,
+  width,
+  height
+);
+ctx.fill();
+ctx.restore();
+`,
+};
+
+export const GradientComponent: Component = {
+  name: "Gradient",
+  description: "A gradient from one color to another",
+  properties: {
+    startColor: {
+      label: "Start Color",
+      description: "The color at the start of the gradient",
+      type: "color",
+      settings: { default: "#FF0000" },
+    },
+    startPosition: {
+      label: "Start Position",
+      description: "The position of the start color, relative to the canvas",
+      type: "point",
+      settings: {
+        default: { x: 0, y: 0 },
+        min: { x: 0, y: 0 },
+        max: { x: 1, y: 1 },
+        step: 0.01,
+        dragPane: true,
+        customStep: true,
+      },
+    },
+    endColor: {
+      label: "End Color",
+      description: "The color at the end of the gradient",
+      type: "color",
+      settings: { default: "#0000FF" },
+    },
+    endPosition: {
+      label: "End Position",
+      description: "The position of the end color, relative to the canvas",
+      type: "point",
+      settings: {
+        default: { x: 1, y: 1 },
+        min: { x: 0, y: 0 },
+        max: { x: 1, y: 1 },
+        step: 0.01,
+        dragPane: true,
+        customStep: true,
+      },
+    },
+  },
+  render: `
+const { ctx, size, properties } = context;
+const { startColor, endColor, direction } = properties;
+const startX = properties.startPosition.x * size.width;
+const startY = properties.startPosition.y * size.height;
+const endX = properties.endPosition.x * size.width;
+const endY = properties.endPosition.y * size.height;
+ctx.save();
+const gradient = ctx.createLinearGradient(startX, startY, endX, endY);
+gradient.addColorStop(0, startColor);
+gradient.addColorStop(1, endColor);
+ctx.fillStyle = gradient;
+ctx.fillRect(0, 0, size.width, size.height);
+ctx.restore();
+`,
 };
 
 /** Renders all enabled components of an element to the canvas context */
